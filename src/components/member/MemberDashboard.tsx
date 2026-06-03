@@ -205,6 +205,7 @@ export function MemberDashboard({ portal, loading, error, onRetry }: MemberDashb
         <MemberCoachSection
           locale={locale}
           currency={portal.gym.base_currency}
+          portal={portal}
           currentCoachId={portal.coach?.id}
           onUpdated={onRetry}
         />

@@ -26,6 +26,8 @@ export type MemberPortalData = {
     specialty: string | null;
     avatar_url: string | null;
   } | null;
+  /** Present when DB runs fix-member-coaches-list.sql (or updated get_member_portal). */
+  available_coaches?: GymCoachOption[];
   membership: {
     id: string;
     plan_id: string;
@@ -80,7 +82,25 @@ export async function fetchMemberPortal(): Promise<MemberPortalData | null> {
     return null;
   }
 
+  const raw = data as Record<string, unknown>;
   const payload = data as MemberPortalData;
+
+  if ("available_coaches" in raw) {
+    payload.available_coaches = normalizeCoachList(raw.available_coaches);
+  }
+
+  if (payload.coach && typeof payload.coach === "object") {
+    const coachRaw = payload.coach as Record<string, unknown>;
+    const first = String(coachRaw.first_name ?? "").trim();
+    const last = String(coachRaw.last_name ?? "").trim();
+    payload.coach = {
+      id: String(coachRaw.id ?? ""),
+      full_name:
+        String(coachRaw.full_name ?? "").trim() || `${first} ${last}`.trim() || "Coach",
+      specialty: (coachRaw.specialty as string | null) ?? null,
+      avatar_url: (coachRaw.avatar_url as string | null) ?? null,
+    };
+  }
 
   if (payload.membership) {
     payload.membership = {
@@ -118,7 +138,17 @@ function normalizeCoachList(raw: unknown): GymCoachOption[] {
   if (!raw) {
     return [];
   }
-  const list = Array.isArray(raw) ? raw : [];
+
+  let parsed: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw) as unknown;
+    } catch {
+      return [];
+    }
+  }
+
+  const list = Array.isArray(parsed) ? parsed : [];
   return list
     .map((row) => {
       if (!row || typeof row !== "object") {
@@ -198,25 +228,38 @@ async function fetchGymCoachesDirect(gymId: string, memberId: string): Promise<G
     });
 }
 
-export async function fetchGymCoachesForMember(): Promise<GymCoachOption[]> {
-  const portal = await fetchMemberPortal();
-  if (!portal) {
+export async function fetchGymCoachesForMember(
+  portal?: MemberPortalData | null,
+): Promise<GymCoachOption[]> {
+  const resolved = portal ?? (await fetchMemberPortal());
+  if (!resolved) {
     return [];
+  }
+
+  if (resolved.available_coaches !== undefined) {
+    return resolved.available_coaches;
   }
 
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase.rpc("get_gym_coaches_for_member");
 
+  let fromRpc: GymCoachOption[] = [];
   if (!error) {
-    const fromRpc = normalizeCoachList(data);
-    if (fromRpc.length > 0) {
-      return fromRpc;
-    }
+    fromRpc = normalizeCoachList(data);
   } else if (error.code !== "PGRST202") {
     throw error;
   }
 
-  return fetchGymCoachesDirect(portal.member.gym_id, portal.member.id);
+  const fromDirect = await fetchGymCoachesDirect(
+    resolved.member.gym_id,
+    resolved.member.id,
+  );
+
+  const merged = new Map<string, GymCoachOption>();
+  for (const coach of [...fromRpc, ...fromDirect]) {
+    merged.set(coach.id, coach);
+  }
+  return [...merged.values()].sort((a, b) => a.full_name.localeCompare(b.full_name));
 }
 
 export async function memberChooseCoach(coachId: string) {

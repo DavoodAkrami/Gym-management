@@ -12,12 +12,14 @@ import {
   memberChooseCoachWithProgram,
   type CoachProgramOffer,
   type GymCoachOption,
+  type MemberPortalData,
 } from "@/lib/supabase/member-portal";
 import type { Locale } from "@/lib/store/slices";
 
 type MemberCoachSectionProps = {
   locale: Locale;
   currency: string;
+  portal: MemberPortalData;
   currentCoachId?: string | null;
   onUpdated: () => void;
 };
@@ -25,6 +27,7 @@ type MemberCoachSectionProps = {
 export function MemberCoachSection({
   locale,
   currency,
+  portal,
   currentCoachId,
   onUpdated,
 }: MemberCoachSectionProps) {
@@ -44,13 +47,13 @@ export function MemberCoachSection({
     setLoading(true);
     setError(null);
     try {
-      setCoaches(await fetchGymCoachesForMember());
+      setCoaches(await fetchGymCoachesForMember(portal));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
     } finally {
       setLoading(false);
     }
-  }, [locale]);
+  }, [locale, portal]);
 
   useEffect(() => {
     void load();

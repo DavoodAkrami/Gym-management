@@ -752,7 +752,12 @@ begin
     v_days_left := (v_membership.end_date - current_date);
   end if;
 
-  select to_jsonb(c) into v_coach
+  select jsonb_build_object(
+    'id', c.id,
+    'full_name', coalesce(nullif(trim(c.full_name), ''), trim(c.first_name || ' ' || c.last_name)),
+    'specialty', c.specialty,
+    'avatar_url', c.avatar_url
+  ) into v_coach
   from public.member_coaches mc
   join public.coaches c on c.id = mc.coach_id
   where mc.member_id = v_member.id
@@ -762,6 +767,7 @@ begin
     'member', to_jsonb(v_member),
     'gym', to_jsonb(v_gym),
     'coach', v_coach,
+    'available_coaches', coalesce(public.get_gym_coaches_for_member(), '[]'::jsonb),
     'membership', case
       when not v_has_membership then null
       else jsonb_build_object(
