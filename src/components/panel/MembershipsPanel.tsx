@@ -6,6 +6,7 @@ import { ListSkeleton } from "@/components/panel/PanelSkeleton";
 import { SelectBar, type SelectBarOption } from "@/components/SelectBar";
 import { Spinner } from "@/components/ui/Spinner";
 import { getTranslation } from "@/lib/i18n/translations";
+import { formatDate } from "@/lib/date/format";
 import {
   filterMembershipsByQuery,
   filterMembershipsByType,
@@ -100,7 +101,7 @@ export function MembershipsPanel({ gymId, locale, currency }: MembershipsPanelPr
         </p>
         <p className="text-sm font-semibold text-muted-foreground">{item.member_phone}</p>
         <p className="mt-1 text-xs font-bold text-muted-foreground">
-          {item.plan_name} · {item.start_date} → {item.end_date}
+          {item.plan_name} · {formatDate(item.start_date, locale)} → {formatDate(item.end_date, locale)}
         </p>
         <p className="mt-1 text-xs font-bold text-muted-foreground">
           {planRemainingLabel(item.days_left, {
@@ -112,7 +113,7 @@ export function MembershipsPanel({ gymId, locale, currency }: MembershipsPanelPr
         </p>
         {finished && item.lapse_visible_until ? (
           <p className="mt-1 text-xs font-bold text-muted-foreground">
-            {t("memberLapseUntil")}: {item.lapse_visible_until}
+            {t("memberLapseUntil")}: {formatDate(item.lapse_visible_until, locale)}
           </p>
         ) : null}
       </div>

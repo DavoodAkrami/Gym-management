@@ -1,14 +1,19 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FiMenu, FiX } from "react-icons/fi";
-import { LanguageSelect } from "@/components/LanguageSelect";
+import { PreferencesBar } from "@/components/PreferencesBar";
 import { ListSkeleton } from "@/components/panel/PanelSkeleton";
 import { PanelNavList } from "@/components/panel/PanelNavList";
 import { PanelSectionContent } from "@/components/panel/PanelSectionContent";
 import { getTranslation } from "@/lib/i18n/translations";
-import { isPanelSectionId, panelSections, type PanelSectionId } from "@/lib/panel/sections";
+import {
+  DEFAULT_ENABLED_SECTIONS,
+  isPanelSectionId,
+  panelSections,
+  type PanelSectionId,
+} from "@/lib/panel/sections";
 import { useAppSelector } from "@/lib/store/hooks";
 
 type PanelShellProps = {
@@ -27,9 +32,18 @@ export function PanelShell({ slug }: PanelShellProps) {
   const gym = Object.values(gyms).find((item) => item?.slug === slug);
   const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(locale, key);
 
+  const visibleSections = useMemo(() => {
+    const enabled = gym?.enabled_sections ?? DEFAULT_ENABLED_SECTIONS;
+    const enabledSet = new Set(enabled);
+    return panelSections.filter((s) => enabledSet.has(s.id));
+  }, [gym?.enabled_sections]);
+
   const sectionParam = searchParams.get("section");
-  const activeSection: PanelSectionId = isPanelSectionId(sectionParam) ? sectionParam : "overview";
-  const active = panelSections.find((item) => item.id === activeSection) ?? panelSections[0];
+  const activeSection: PanelSectionId =
+    isPanelSectionId(sectionParam) && visibleSections.some((s) => s.id === sectionParam)
+      ? sectionParam
+      : (visibleSections[0]?.id ?? "overview");
+  const active = visibleSections.find((item) => item.id === activeSection) ?? visibleSections[0];
 
   const setSection = useCallback(
     (sectionId: PanelSectionId) => {
@@ -125,29 +139,39 @@ export function PanelShell({ slug }: PanelShellProps) {
         </div>
         <div className="p-3">
           <p className="mb-3 px-2 text-eyebrow">{t("panelMenu")}</p>
-          <PanelNavList locale={locale} activeSection={activeSection} onSelect={setSection} />
+          <PanelNavList
+            locale={locale}
+            activeSection={activeSection}
+            onSelect={setSection}
+            sections={visibleSections}
+          />
         </div>
       </aside>
 
-      <header className="surface-panel mb-4 flex shrink-0 items-center justify-between gap-4 px-4 py-3 ps-14 sm:px-5 sm:ps-16 lg:ps-5">
-        <div className="flex min-w-0 items-center gap-3">
+      <header className="panel-shell-header surface-panel mb-4 flex shrink-0 flex-wrap items-center justify-between gap-2 px-4 py-3 sm:gap-3 sm:px-5 lg:px-5">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <span className="brand-mark grid size-10 shrink-0 place-items-center rounded-xl text-sm font-black">
             GM
           </span>
           <div className="min-w-0">
-            <p className="truncate text-base font-black text-foreground">{gym?.name ?? slug}</p>
+            <p className="truncate text-sm font-black text-foreground sm:text-base">{gym?.name ?? slug}</p>
             <p className="truncate text-xs font-semibold text-muted-foreground">
               {authUser?.full_name || authUser?.email || t("panelWorkspace")}
             </p>
           </div>
         </div>
-        <LanguageSelect />
+        <PreferencesBar className="ms-auto" />
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
         <aside className="surface-panel hidden w-full shrink-0 overflow-y-auto p-3 lg:block lg:w-64 lg:max-h-full lg:p-4">
           <p className="mb-3 px-2 text-eyebrow">{t("panelMenu")}</p>
-          <PanelNavList locale={locale} activeSection={activeSection} onSelect={setSection} />
+          <PanelNavList
+            locale={locale}
+            activeSection={activeSection}
+            onSelect={setSection}
+            sections={visibleSections}
+          />
         </aside>
 
         <main className="panel-main-card surface-panel flex min-h-0 flex-1 flex-col">

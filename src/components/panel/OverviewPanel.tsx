@@ -22,45 +22,63 @@ import type { Locale } from "@/lib/store/slices";
 type OverviewPanelProps = {
   gymId: string;
   locale: Locale;
-  currency: string;
 };
 
-export function OverviewPanel({ gymId, locale, currency }: OverviewPanelProps) {
+export function OverviewPanel({ gymId, locale }: OverviewPanelProps) {
   const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(locale, key);
+  const currencyLabel = t("currencyToman");
   const [timeline, setTimeline] = useState<ChartTimeline>("30d");
   const [memberSeries, setMemberSeries] = useState<{ label: string; value: number }[]>([]);
   const [revenueSeries, setRevenueSeries] = useState<{ label: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [memberError, setMemberError] = useState<string | null>(null);
+  const [revenueError, setRevenueError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!gymId) {
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     const load = async () => {
       setLoading(true);
-      setError(null);
+      setMemberError(null);
+      setRevenueError(null);
 
-      try {
-        const [members, revenue] = await Promise.all([
-          fetchMemberSignupSeries(gymId, timeline),
-          fetchRevenueSeries(gymId, timeline),
-        ]);
+      const [membersResult, revenueResult] = await Promise.allSettled([
+        fetchMemberSignupSeries(gymId, timeline, locale),
+        fetchRevenueSeries(gymId, timeline, locale),
+      ]);
 
-        if (cancelled) {
-          return;
-        }
-
-        setMemberSeries(members);
-        setRevenueSeries(revenue);
-      } catch (caught) {
-        if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+      if (cancelled) {
+        return;
       }
+
+      if (membersResult.status === "fulfilled") {
+        setMemberSeries(membersResult.value);
+      } else {
+        setMemberSeries([]);
+        setMemberError(
+          membersResult.reason instanceof Error
+            ? membersResult.reason.message
+            : getTranslation(locale, "authErrorGeneric"),
+        );
+      }
+
+      if (revenueResult.status === "fulfilled") {
+        setRevenueSeries(revenueResult.value);
+      } else {
+        setRevenueSeries([]);
+        setRevenueError(
+          revenueResult.reason instanceof Error
+            ? revenueResult.reason.message
+            : getTranslation(locale, "authErrorGeneric"),
+        );
+      }
+
+      setLoading(false);
     };
 
     void load();
@@ -68,7 +86,7 @@ export function OverviewPanel({ gymId, locale, currency }: OverviewPanelProps) {
     return () => {
       cancelled = true;
     };
-  }, [gymId, timeline]);
+  }, [gymId, timeline, locale]);
 
   const totalMembers = memberSeries.reduce((sum, point) => sum + point.value, 0);
   const totalRevenue = revenueSeries.reduce((sum, point) => sum + point.value, 0);
@@ -80,12 +98,6 @@ export function OverviewPanel({ gymId, locale, currency }: OverviewPanelProps) {
         <TimelineSelector locale={locale} value={timeline} onChange={setTimeline} />
       </div>
 
-      {error ? (
-        <p className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm font-bold text-danger">
-          {error}
-        </p>
-      ) : null}
-
       <div className="grid gap-4 lg:grid-cols-2">
         <article className="rounded-2xl border border-glass-border bg-glass/50 p-4 sm:p-5">
           <div className="mb-4 flex items-end justify-between gap-3">
@@ -96,6 +108,11 @@ export function OverviewPanel({ gymId, locale, currency }: OverviewPanelProps) {
               </p>
             </div>
           </div>
+          {memberError ? (
+            <p className="mb-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-bold text-danger">
+              {memberError}
+            </p>
+          ) : null}
           <div className="h-64">
             {loading ? (
               <Skeleton className="h-full w-full" />
@@ -105,7 +122,7 @@ export function OverviewPanel({ gymId, locale, currency }: OverviewPanelProps) {
                   <CartesianGrid strokeDasharray="4 4" stroke="var(--chart-grid)" />
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} interval="preserveStartEnd" />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} width={32} />
-                  <Tooltip />
+                  <Tooltip contentStyle={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", borderRadius: "12px", color: "var(--foreground)", fontSize: "13px", fontWeight: 600, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }} />
                   <Line type="monotone" dataKey="value" stroke="var(--chart-line)" strokeWidth={2.5} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
@@ -118,10 +135,15 @@ export function OverviewPanel({ gymId, locale, currency }: OverviewPanelProps) {
             <div>
               <h2 className="text-lg font-black text-foreground">{t("chartRevenueTitle")}</h2>
               <p className="text-sm font-semibold text-muted-foreground">
-                {t("chartRevenueTotal")}: {loading ? "…" : `${currency} ${totalRevenue.toFixed(2)}`}
+                {t("chartRevenueTotal")}: {loading ? "…" : `${currencyLabel} ${totalRevenue.toFixed(0)}`}
               </p>
             </div>
           </div>
+          {revenueError ? (
+            <p className="mb-3 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-bold text-danger">
+              {revenueError}
+            </p>
+          ) : null}
           <div className="h-64">
             {loading ? (
               <Skeleton className="h-full w-full" />
@@ -131,7 +153,10 @@ export function OverviewPanel({ gymId, locale, currency }: OverviewPanelProps) {
                   <CartesianGrid strokeDasharray="4 4" stroke="var(--chart-grid)" />
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} width={40} />
-                  <Tooltip formatter={(value) => [`${currency} ${Number(value).toFixed(2)}`, t("chartRevenueTitle")]} />
+                  <Tooltip
+                    contentStyle={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", borderRadius: "12px", color: "var(--foreground)", fontSize: "13px", fontWeight: 600, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
+                    formatter={(value) => [`${currencyLabel} ${Number(value).toFixed(0)}`, t("chartRevenueTitle")]}
+                  />
                   <Bar dataKey="value" fill="var(--chart-bar)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>

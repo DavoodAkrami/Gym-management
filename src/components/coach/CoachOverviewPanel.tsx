@@ -146,7 +146,9 @@ export function CoachOverviewPanel({ locale, currency }: CoachOverviewPanelProps
                   <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip />
+                  <Tooltip
+                    contentStyle={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", borderRadius: "12px", color: "var(--foreground)", fontSize: "13px", fontWeight: 600, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
+                  />
                   <Line type="monotone" dataKey="value" stroke="var(--chart-line)" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
@@ -167,7 +169,9 @@ export function CoachOverviewPanel({ locale, currency }: CoachOverviewPanelProps
                   <CartesianGrid stroke="var(--chart-grid)" strokeDasharray="3 3" />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
+                  <Tooltip
+                    contentStyle={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", borderRadius: "12px", color: "var(--foreground)", fontSize: "13px", fontWeight: 600, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
+                  />
                   <Bar dataKey="value" fill="var(--chart-bar)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>

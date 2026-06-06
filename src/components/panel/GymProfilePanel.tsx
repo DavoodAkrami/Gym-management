@@ -1,25 +1,25 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { FiEdit2, FiLogOut, FiPlus, FiTrash2 } from "react-icons/fi";
-import { CurrencySelect } from "@/components/CurrencySelect";
 import { Modal } from "@/components/Modal";
 import { ListSkeleton } from "@/components/panel/PanelSkeleton";
 import { StaffAvatar } from "@/components/ui/StaffAvatar";
 import { Spinner } from "@/components/ui/Spinner";
 import { readAvatarFile } from "@/lib/staff/avatar";
 import { getTranslation } from "@/lib/i18n/translations";
+import { DEFAULT_ENABLED_SECTIONS, panelSections } from "@/lib/panel/sections";
 import {
   createGymPlan,
   deleteGymPlan,
   fetchGymProfile,
   updateGymPlan,
   updateGymProfile,
+  updateGymSections,
   updateOwnerProfile,
   type GymPlanInput,
   type GymProfileInput,
 } from "@/lib/supabase/gym-profile";
-import { normalizeGymCurrency, type GymCurrencyCode } from "@/lib/currency/options";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authActions, gymPlansActions, gymsActions, type GymPlan } from "@/lib/store/slices";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
@@ -57,10 +57,9 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
 
   const [ownerName, setOwnerName] = useState(authUser?.full_name ?? "");
   const [ownerAvatar, setOwnerAvatar] = useState("");
-  const [savingOwner, setSavingOwner] = useState(false);
 
   const [loading, setLoading] = useState(true);
-  const [savingGym, setSavingGym] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [savingPlan, setSavingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -70,12 +69,25 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
     name: "",
     address: "",
     phone: "",
-    base_currency: "USD",
-    logo_url: "",
   });
+  const [enabledSections, setEnabledSections] = useState<string[]>(DEFAULT_ENABLED_SECTIONS);
+  const [savingSections, setSavingSections] = useState(false);
   const [plans, setPlans] = useState<GymPlan[]>([]);
   const [planModal, setPlanModal] = useState<PlanModalState>({ type: "none" });
   const [planForm, setPlanForm] = useState<GymPlanInput>(emptyPlanForm());
+
+  const gymInitialRef = useRef<GymProfileInput>({ name: "", address: "", phone: "" });
+  const ownerInitialRef = useRef({ name: authUser?.full_name ?? "", avatar: "" });
+
+  const gymDirty =
+    gymForm.name !== gymInitialRef.current.name ||
+    gymForm.address !== gymInitialRef.current.address ||
+    gymForm.phone !== gymInitialRef.current.phone;
+
+  const ownerDirty =
+    ownerName !== ownerInitialRef.current.name || ownerAvatar !== ownerInitialRef.current.avatar;
+
+  const dirty = gymDirty || ownerDirty;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,13 +95,17 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
     try {
       const { gym, plans: planList } = await fetchGymProfile(gymId);
       setSlug(gym.slug);
-      setGymForm({
+      const form = {
         name: gym.name,
         address: gym.address,
         phone: gym.phone,
-        base_currency: normalizeGymCurrency(gym.base_currency),
-        logo_url: gym.logo_url ?? "",
-      });
+      };
+      setGymForm(form);
+      gymInitialRef.current = form;
+      ownerInitialRef.current = { name: authUser?.full_name ?? "", avatar: "" };
+      setOwnerName(authUser?.full_name ?? "");
+      setOwnerAvatar("");
+      setEnabledSections(gym.enabled_sections ?? DEFAULT_ENABLED_SECTIONS);
       setPlans(planList);
       dispatch(gymsActions.upsertGym(gym));
       planList.forEach((plan) => dispatch(gymPlansActions.upsertGymPlan(plan)));
@@ -98,43 +114,53 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
     } finally {
       setLoading(false);
     }
-  }, [dispatch, gymId, locale]);
+  }, [dispatch, gymId, locale, authUser]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const currencyLabel = useMemo(
-    () => normalizeGymCurrency(gymForm.base_currency),
-    [gymForm.base_currency],
-  );
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      if (gymDirty) {
+        const gym = await updateGymProfile(gymId, {
+          name: gymForm.name,
+          address: gymForm.address,
+          phone: gymForm.phone,
+        });
+        dispatch(gymsActions.upsertGym(gym));
+        gymInitialRef.current = { ...gymForm };
+      }
+      if (ownerDirty) {
+        await updateOwnerProfile(ownerName, ownerAvatar);
+        if (authUser) {
+          dispatch(
+            authActions.setAuth({
+              user: { ...authUser, full_name: ownerName },
+              session: authSession,
+            }),
+          );
+        }
+        ownerInitialRef.current = { name: ownerName, avatar: ownerAvatar };
+      }
+      setSuccess(t("profileSaved"));
+      window.setTimeout(() => setSuccess(null), 3000);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSignOut = async () => {
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.signOut();
     dispatch(authActions.clearAuth());
     window.location.href = "/login";
-  };
-
-  const handleGymSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setSavingGym(true);
-    setError(null);
-    setSuccess(null);
-
-    try {
-      const gym = await updateGymProfile(gymId, {
-        ...gymForm,
-        logo_url: gymForm.logo_url?.trim() || null,
-      });
-      dispatch(gymsActions.upsertGym(gym));
-      setSuccess(t("profileGymSaved"));
-      window.setTimeout(() => setSuccess(null), 3000);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
-    } finally {
-      setSavingGym(false);
-    }
   };
 
   const openPlanModal = (state: PlanModalState) => {
@@ -200,58 +226,91 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
   }
 
   return (
-    <div className="space-y-8">
-      <p className="text-sm font-medium leading-7 text-muted-foreground">{t("profilePanelDesc")}</p>
-
+    <div className="panel-card p-5 sm:p-6">
       {error ? (
-        <p className="panel-alert border border-danger/30 bg-danger/10 text-danger" role="alert">
+        <p className="panel-alert mb-6 border border-danger/30 bg-danger/10 text-danger" role="alert">
           {error}
         </p>
       ) : null}
 
       {success ? (
-        <p className="panel-alert border border-success/30 bg-success/10 text-success" role="status">
+        <p className="panel-alert mb-6 border border-success/30 bg-success/10 text-success" role="status">
           {success}
         </p>
       ) : null}
 
-      <form className="panel-card space-y-4 p-5 sm:p-6" onSubmit={(e) => void handleGymSubmit(e)}>
-        <h2 className="text-lg font-black text-foreground">{t("profileGymSection")}</h2>
+      {/* Owner profile */}
+      <section className="space-y-5">
+        <div className="flex items-center gap-4">
+          <StaffAvatar
+            firstName={ownerName.split(" ")[0] ?? ""}
+            lastName={ownerName.split(" ").slice(1).join(" ") ?? ""}
+            avatarUrl={ownerAvatar}
+            size="lg"
+          />
+          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-glass-border bg-glass/40 px-4 py-2 text-sm font-bold text-muted-foreground hover:bg-glass/60">
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                void readAvatarFile(file).then(setOwnerAvatar).catch(() => {});
+              }}
+            />
+            {t("staffPhoto")}
+          </label>
+        </div>
+        <label className="block sm:max-w-xs">
+          <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("authFullName")}</span>
+          <input
+            required
+            value={ownerName}
+            onChange={(e) => setOwnerName(e.target.value)}
+            className="w-full px-3"
+          />
+        </label>
+      </section>
+
+      <div className="my-8 border-t border-glass-border" />
+
+      {/* Gym information */}
+      <section className="space-y-4">
+        <label className="block">
+          <span className="mb-1 block text-xs font-bold text-muted-foreground">
+            {t("onboardingGymName")}
+          </span>
+          <input
+            required
+            value={gymForm.name}
+            onChange={(e) => setGymForm((v) => ({ ...v, name: e.target.value }))}
+            className="w-full px-3"
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-bold text-muted-foreground">
+            {t("profileGymSlug")}
+          </span>
+          <input readOnly value={slug} className="w-full px-3 opacity-80" />
+          <p className="mt-1 text-xs font-medium text-muted-foreground">{t("profileGymSlugHint")}</p>
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-bold text-muted-foreground">
+            {t("onboardingAddress")}
+          </span>
+          <textarea
+            required
+            rows={2}
+            value={gymForm.address}
+            onChange={(e) => setGymForm((v) => ({ ...v, address: e.target.value }))}
+            className="w-full px-3 py-2"
+          />
+        </label>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block sm:col-span-2">
-            <span className="mb-1 block text-xs font-bold text-muted-foreground">
-              {t("onboardingGymName")}
-            </span>
-            <input
-              required
-              value={gymForm.name}
-              onChange={(e) => setGymForm((v) => ({ ...v, name: e.target.value }))}
-              className="w-full px-3"
-            />
-          </label>
-
-          <label className="block sm:col-span-2">
-            <span className="mb-1 block text-xs font-bold text-muted-foreground">
-              {t("profileGymSlug")}
-            </span>
-            <input readOnly value={slug} className="w-full px-3 opacity-80" />
-            <p className="mt-1 text-xs font-medium text-muted-foreground">{t("profileGymSlugHint")}</p>
-          </label>
-
-          <label className="block sm:col-span-2">
-            <span className="mb-1 block text-xs font-bold text-muted-foreground">
-              {t("onboardingAddress")}
-            </span>
-            <textarea
-              required
-              rows={2}
-              value={gymForm.address}
-              onChange={(e) => setGymForm((v) => ({ ...v, address: e.target.value }))}
-              className="w-full px-3 py-2"
-            />
-          </label>
-
           <label className="block">
             <span className="mb-1 block text-xs font-bold text-muted-foreground">
               {t("onboardingPhone")}
@@ -263,42 +322,84 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
               className="w-full px-3"
             />
           </label>
-
-          <div className="block sm:col-span-1">
-            <CurrencySelect
-              locale={locale}
-              value={normalizeGymCurrency(gymForm.base_currency)}
-              onChange={(value: GymCurrencyCode) =>
-                setGymForm((v) => ({ ...v, base_currency: value }))
-              }
-            />
-          </div>
-
-          <label className="block sm:col-span-2">
-            <span className="mb-1 block text-xs font-bold text-muted-foreground">
-              {t("profileGymLogo")}
-            </span>
-            <input
-              type="url"
-              value={gymForm.logo_url ?? ""}
-              onChange={(e) => setGymForm((v) => ({ ...v, logo_url: e.target.value }))}
-              className="w-full px-3"
-              placeholder="https://"
-            />
-          </label>
         </div>
 
         <div className="flex justify-end">
           <button
-            type="submit"
-            disabled={savingGym}
+            type="button"
+            disabled={!dirty || saving}
             className="btn-primary rounded-xl px-5 py-2.5 text-sm font-black disabled:opacity-70"
+            onClick={() => void handleSave()}
           >
-            {savingGym ? <Spinner label={t("uiSaving")} /> : t("profileSaveGym")}
+            {saving ? <Spinner label={t("uiSaving")} /> : t("profileSaveChanges")}
           </button>
         </div>
-      </form>
+      </section>
 
+      <div className="my-8 border-t border-glass-border" />
+
+      {/* Panel sections */}
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-black text-foreground">{t("profilePanelsSection")}</h2>
+          <p className="mt-1 text-sm font-medium text-muted-foreground">{t("profilePanelsDesc")}</p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {panelSections.map((section) => {
+            const locked = section.id === "members" || section.id === "profile";
+            const isChecked = enabledSections.includes(section.id);
+            return (
+              <label
+                key={section.id}
+                className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-bold ${
+                  locked
+                    ? "border-glass-border bg-glass/20 text-muted-foreground cursor-not-allowed"
+                    : "border-glass-border bg-glass/40 text-foreground hover:bg-glass/60 has-checked:border-primary/40 has-checked:bg-primary/5"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  disabled={locked}
+                  onChange={async (e) => {
+                    const next = e.target.checked
+                      ? [...enabledSections, section.id]
+                      : enabledSections.filter((id) => id !== section.id);
+                    setEnabledSections(next);
+                    setSavingSections(true);
+                    setError(null);
+                    try {
+                      const gym = await updateGymSections(gymId, next);
+                      dispatch(gymsActions.upsertGym(gym));
+                    } catch (caught) {
+                      setEnabledSections(enabledSections);
+                      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
+                    } finally {
+                      setSavingSections(false);
+                    }
+                  }}
+                  className="size-4 accent-primary"
+                />
+                <span className="flex items-center gap-2">
+                  {t(section.labelKey)}
+                  {locked ? (
+                    <span className="rounded-md bg-glass px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+                      {t("profilePanelsLocked")}
+                    </span>
+                  ) : null}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+        {savingSections ? (
+          <p className="text-xs font-medium text-muted-foreground">{t("uiSaving")}</p>
+        ) : null}
+      </section>
+
+      <div className="my-8 border-t border-glass-border" />
+
+      {/* Pricing plans */}
       <section className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -316,20 +417,20 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
         </div>
 
         {plans.length === 0 ? (
-          <div className="panel-section-fill panel-card flex items-center justify-center p-8 text-center">
+          <div className="flex items-center justify-center rounded-xl border border-dashed border-glass-border p-8 text-center">
             <p className="text-sm font-bold text-muted-foreground">{t("profilePlansEmpty")}</p>
           </div>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {plans.map((plan) => (
               <li
                 key={plan.id}
-                className="panel-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-xl border border-glass-border bg-glass/20 p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
                   <p className="font-black text-foreground">{plan.name}</p>
                   <p className="text-sm font-semibold text-muted-foreground">
-                    {currencyLabel} {plan.price.toFixed(2)} · {plan.duration_days}{" "}
+                    {t("currencyToman")} {plan.price.toFixed(2)} · {plan.duration_days}{" "}
                     {t("profilePlanDays")}
                   </p>
                 </div>
@@ -395,7 +496,7 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-bold text-muted-foreground">
-              {t("onboardingPlanPrice")} ({currencyLabel})
+              {t("onboardingPlanPrice")} ({t("currencyToman")})
             </span>
             <input
               required
@@ -457,89 +558,23 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
         </p>
       </Modal>
 
-      <section className="panel-card border border-glass-border p-5">
-        <h2 className="text-lg font-black text-foreground">{t("ownerProfileSection")}</h2>
-        <p className="mt-2 text-sm font-medium text-muted-foreground">{t("ownerProfileDesc")}</p>
-        <form
-          className="mt-4 space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void (async () => {
-              setSavingOwner(true);
-              setError(null);
-              try {
-                await updateOwnerProfile(ownerName, ownerAvatar);
-                if (authUser) {
-                  dispatch(
-                    authActions.setAuth({
-                      user: { ...authUser, full_name: ownerName },
-                      session: authSession,
-                    }),
-                  );
-                }
-                setSuccess(t("ownerProfileSaved"));
-              } catch (caught) {
-                setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
-              } finally {
-                setSavingOwner(false);
-              }
-            })();
-          }}
-        >
-          <div className="flex items-center gap-4">
-            <StaffAvatar
-              firstName={ownerName.split(" ")[0] ?? ""}
-              lastName={ownerName.split(" ").slice(1).join(" ") ?? ""}
-              avatarUrl={ownerAvatar}
-              size="lg"
-            />
-            <label className="block flex-1">
-              <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("staffPhoto")}</span>
-              <input
-                type="file"
-                accept="image/*"
-                className="w-full text-sm"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) {
-                    return;
-                  }
-                  void readAvatarFile(file).then(setOwnerAvatar).catch(() => {});
-                }}
-              />
-            </label>
-          </div>
-          <label className="block">
-            <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("authFullName")}</span>
-            <input
-              required
-              value={ownerName}
-              onChange={(e) => setOwnerName(e.target.value)}
-              className="w-full px-3"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={savingOwner}
-            className="btn-primary rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70"
-          >
-            {savingOwner ? <Spinner label={t("uiSaving")} /> : t("ownerProfileSave")}
-          </button>
-        </form>
-      </section>
+      <div className="my-8 border-t border-glass-border" />
 
-      <section className="panel-card border border-glass-border p-5">
-        <h2 className="text-lg font-black text-foreground">{t("profileAccountSection")}</h2>
-        <p className="mt-2 text-sm font-medium text-muted-foreground">{t("profileLogoutDesc")}</p>
+      {/* Logout */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-bold text-muted-foreground">{t("profileAccountSection")}</p>
+          <p className="mt-1 text-xs font-medium text-muted-foreground">{t("profileLogoutDesc")}</p>
+        </div>
         <button
           type="button"
           onClick={() => void handleSignOut()}
-          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-2.5 text-sm font-black text-danger"
+          className="inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-2.5 text-sm font-black text-danger"
         >
           <FiLogOut aria-hidden="true" />
           {t("profileLogout")}
         </button>
-      </section>
+      </div>
     </div>
   );
 }

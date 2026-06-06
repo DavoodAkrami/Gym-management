@@ -25,7 +25,6 @@ export type MemberFormValues = {
   phone: string;
   zip_code: string;
   national_id: string;
-  preferred_language: "en" | "fa";
   status: Member["status"];
   join_date: string;
   plan_id: string;

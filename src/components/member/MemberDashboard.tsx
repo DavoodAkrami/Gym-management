@@ -14,6 +14,7 @@ import { MemberCoachSection } from "@/components/member/MemberCoachSection";
 import { MemberProfileSection } from "@/components/member/MemberProfileSection";
 import { MemberProgramsSection } from "@/components/member/MemberProgramsSection";
 import { getTranslation } from "@/lib/i18n/translations";
+import { formatDate } from "@/lib/date/format";
 import {
   formatMemberStatus,
   membershipProgressPercent,
@@ -172,7 +173,7 @@ export function MemberDashboard({ portal, loading, error, onRetry }: MemberDashb
                     <FiCalendar className="text-lg text-muted-foreground" aria-hidden="true" />
                     <div>
                       <p className="member-stat-label">{t("memberPortalEnds")}</p>
-                      <p className="member-stat-value">{membership.end_date}</p>
+                      <p className="member-stat-value">{formatDate(membership.end_date, locale)}</p>
                     </div>
                   </div>
                 </div>

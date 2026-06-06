@@ -12,6 +12,7 @@ import {
   type PlanDraft,
 } from "@/components/GymSetupFields";
 import { getTranslation } from "@/lib/i18n/translations";
+import { DEFAULT_ENABLED_SECTIONS } from "@/lib/panel/sections";
 import { authActions, type AuthUser } from "@/lib/store/slices";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { bootstrapOwnerSession, completeGymOnboarding } from "@/lib/supabase/owner";
@@ -32,7 +33,8 @@ export function SignupForm() {
   const [gymName, setGymName] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
-  const [baseCurrency, setBaseCurrency] = useState("USD");
+  const [baseCurrency, setBaseCurrency] = useState("IRT");
+  const [enabledSections, setEnabledSections] = useState<string[]>(DEFAULT_ENABLED_SECTIONS);
   const [plans, setPlans] = useState<PlanDraft[]>(() => defaultPlanDrafts(locale));
 
   const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(locale, key);
@@ -163,6 +165,7 @@ export function SignupForm() {
         address,
         phone,
         baseCurrency,
+        enabledSections,
         plans: parsedPlans,
       });
 
@@ -242,11 +245,13 @@ export function SignupForm() {
           address={address}
           phone={phone}
           baseCurrency={baseCurrency}
+          enabledSections={enabledSections}
           plans={plans}
           onGymNameChange={setGymName}
           onAddressChange={setAddress}
           onPhoneChange={setPhone}
           onBaseCurrencyChange={setBaseCurrency}
+          onEnabledSectionsChange={setEnabledSections}
           onPlansChange={setPlans}
         />
 

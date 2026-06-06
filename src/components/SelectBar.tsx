@@ -20,6 +20,7 @@ type SelectBarProps<T extends string = string> = {
   align?: "start" | "end";
   fullWidth?: boolean;
   disabled?: boolean;
+  compact?: boolean;
   /** Render dropdown in document.body (stays above modals). Default true. */
   portalMenu?: boolean;
 };
@@ -36,6 +37,7 @@ export function SelectBar<T extends string = string>({
   align = "end",
   fullWidth = false,
   disabled = false,
+  compact = false,
   portalMenu = true,
 }: SelectBarProps<T>) {
   const listboxId = useId();
@@ -189,8 +191,9 @@ export function SelectBar<T extends string = string>({
     );
   }
 
-  const menuClasses = `selectbar-menu ${open ? "selectbar-menu-open" : ""} ${
-    portalMenu ? "selectbar-menu-portal" : align === "start" ? "selectbar-menu-start" : "selectbar-menu-end"
+  const menuAlignClass = align === "start" ? "selectbar-menu-start" : "selectbar-menu-end";
+  const menuClasses = `selectbar-menu ${open ? "selectbar-menu-open" : ""} ${menuAlignClass} ${
+    portalMenu ? "selectbar-menu-portal" : ""
   }`;
 
   const menuNode = (
@@ -230,12 +233,19 @@ export function SelectBar<T extends string = string>({
             setOpen(true);
           }
         }}
-        className={`selectbar-trigger ${fullWidth ? "selectbar-trigger-full" : ""} ${open ? "selectbar-trigger-open" : ""} ${disabled ? "opacity-60" : ""}`}
+        aria-label={`${label}: ${selected?.label ?? "—"}`}
+        className={`selectbar-trigger ${compact ? "selectbar-trigger-compact" : ""} ${fullWidth ? "selectbar-trigger-full" : ""} ${open ? "selectbar-trigger-open" : ""} ${disabled ? "opacity-60" : ""}`}
       >
         {icon ? <span className="selectbar-icon">{icon}</span> : null}
         <span className="selectbar-value">
-          <span className="selectbar-label">{label}</span>
-          <span className="selectbar-current">{selected?.label ?? "—"}</span>
+          {compact ? (
+            <span className="selectbar-compact">{selected?.hint ?? selected?.label ?? "—"}</span>
+          ) : (
+            <>
+              <span className="selectbar-label">{label}</span>
+              <span className="selectbar-current">{selected?.label ?? "—"}</span>
+            </>
+          )}
         </span>
         <FiChevronDown
           aria-hidden="true"

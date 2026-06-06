@@ -14,6 +14,7 @@ export type GymRow = {
   phone: string;
   logo_url: string | null;
   base_currency: string;
+  enabled_sections: string[] | null;
   created_at: string;
 };
 
@@ -59,11 +60,12 @@ export type MembershipRow = {
 export type PaymentRow = {
   id: string;
   gym_id: string;
-  member_id: string;
+  member_id: string | null;
   membership_id: string | null;
   amount: number;
   payment_method: "cash" | "card" | "transfer";
   paid_at: string;
+  counts_toward_revenue: boolean;
 };
 
 export type SignupLinkRow = {

@@ -31,7 +31,7 @@ export function PanelSectionContent({
   let content: React.ReactNode;
 
   if (section === "overview") {
-    content = <OverviewPanel gymId={gymId} locale={locale} currency={currency} />;
+    content = <OverviewPanel gymId={gymId} locale={locale} />;
   } else if (section === "members") {
     content = <MembersPanel gymId={gymId} locale={locale} currency={currency} />;
   } else if (section === "memberships") {

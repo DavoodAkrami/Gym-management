@@ -4,8 +4,10 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { SelectBar, type SelectBarOption } from "@/components/SelectBar";
 import { Spinner } from "@/components/ui/Spinner";
+import { JalaliDatePicker } from "@/components/ui/JalaliDatePicker";
 import { getTranslation } from "@/lib/i18n/translations";
 import type { MemberFormValues, MemberWithMeta } from "@/lib/members/types";
+import { toLocalDateKey } from "@/lib/panel/timeline";
 import type { GymPlan, Locale } from "@/lib/store/slices";
 
 type MemberFormModalProps = {
@@ -28,9 +30,8 @@ function defaultValues(member: MemberWithMeta | undefined, plans: GymPlan[]): Me
     phone: member?.phone ?? "",
     zip_code: member?.zip_code ?? "",
     national_id: member?.national_id ?? "",
-    preferred_language: member?.preferred_language ?? "en",
     status: member?.status ?? "active",
-    join_date: member?.join_date ?? new Date().toISOString().slice(0, 10),
+    join_date: member?.join_date ?? toLocalDateKey(new Date()),
     plan_id: defaultPlanId,
   };
 }
@@ -57,14 +58,6 @@ export function MemberFormModal({
       setFormError(null);
     }
   }, [open, member?.id, mode, planIdsKey]);
-
-  const languageOptions: SelectBarOption<"en" | "fa">[] = useMemo(
-    () => [
-      { value: "en", label: "English", hint: "EN" },
-      { value: "fa", label: "فارسی", hint: "FA" },
-    ],
-    [],
-  );
 
   const statusOptions: SelectBarOption<MemberFormValues["status"]>[] = useMemo(
     () => [
@@ -154,16 +147,16 @@ export function MemberFormModal({
             className="w-full px-3"
           />
         </label>
-        <label className="block sm:col-span-1">
-          <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberJoinDate")}</span>
-          <input
-            type="date"
-            required
+
+        <div className="sm:col-span-1">
+          <JalaliDatePicker
             value={values.join_date}
-            onChange={(e) => setValues((v) => ({ ...v, join_date: e.target.value }))}
-            className="w-full px-3"
+            onChange={(join_date) => setValues((v) => ({ ...v, join_date }))}
+            label={t("memberJoinDate")}
+            required
           />
-        </label>
+        </div>
+
         <label className="block sm:col-span-1">
           <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberZipCode")}</span>
           <input
@@ -180,18 +173,6 @@ export function MemberFormModal({
             className="w-full px-3"
           />
         </label>
-
-        <div className="sm:col-span-1">
-          <SelectBar
-            fullWidth
-            portalMenu
-            align="start"
-            label={t("memberLanguage")}
-            value={values.preferred_language}
-            options={languageOptions}
-            onChange={(preferred_language) => setValues((v) => ({ ...v, preferred_language }))}
-          />
-        </div>
 
         <div className="sm:col-span-1">
           <SelectBar

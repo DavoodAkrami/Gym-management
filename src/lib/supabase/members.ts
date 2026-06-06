@@ -60,6 +60,51 @@ function attachMemberships(
   });
 }
 
+export async function fetchMembersPage(
+  gymId: string,
+  limit: number,
+  offset: number,
+): Promise<{ members: MemberWithMeta[]; total: number }> {
+  const supabase = createSupabaseBrowserClient();
+
+  const { count, error: countError } = await supabase
+    .from("members")
+    .select("*", { count: "exact", head: true })
+    .eq("gym_id", gymId);
+
+  if (countError) throw countError;
+
+  const { data: memberRows, error: membersError } = await supabase
+    .from("members")
+    .select("*")
+    .eq("gym_id", gymId)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (membersError) throw membersError;
+
+  if (!memberRows || memberRows.length === 0) {
+    return { members: [], total: count ?? 0 };
+  }
+
+  const memberIds = memberRows.map((row) => row.id);
+
+  const { data: membershipRows, error: membershipsError } = await supabase
+    .from("memberships")
+    .select("*, gym_plans(name)")
+    .eq("gym_id", gymId)
+    .in("member_id", memberIds)
+    .order("end_date", { ascending: false });
+
+  if (membershipsError) throw membershipsError;
+
+  const members = (memberRows as MemberRow[]).map(mapMember);
+  return {
+    members: attachMemberships(members, membershipRows as (MembershipRow & { gym_plans?: { name: string } | null })[]),
+    total: count ?? 0,
+  };
+}
+
 export async function fetchGymMembers(gymId: string) {
   const supabase = createSupabaseBrowserClient();
 
@@ -160,7 +205,7 @@ export async function fetchLapsedMembers(gymId: string) {
     }));
 }
 
-export async function createGymMember(gymId: string, values: MemberFormValues) {
+export async function createGymMember(gymId: string, values: MemberFormValues, locale: "en" | "fa" = "en") {
   if (!values.plan_id) {
     throw new Error("A membership plan is required when adding a member.");
   }
@@ -174,7 +219,7 @@ export async function createGymMember(gymId: string, values: MemberFormValues) {
     p_phone: values.phone.trim(),
     p_zip_code: values.zip_code.trim() || null,
     p_national_id: values.national_id.trim() || null,
-    p_preferred_language: values.preferred_language,
+    p_preferred_language: locale,
     p_status: values.status,
     p_join_date: values.join_date,
     p_plan_id: values.plan_id,
@@ -194,7 +239,7 @@ export async function createGymMember(gymId: string, values: MemberFormValues) {
       phone: values.phone.trim(),
       zip_code: values.zip_code.trim() || null,
       national_id: values.national_id.trim() || null,
-      preferred_language: values.preferred_language,
+      preferred_language: locale,
       status: values.status,
       join_date: values.join_date,
     })
@@ -220,24 +265,54 @@ export async function createGymMember(gymId: string, values: MemberFormValues) {
   const end = new Date(start);
   end.setDate(end.getDate() + Number(plan.duration_days));
 
-  const { error: membershipError } = await supabase.from("memberships").insert({
+  const { data: membershipRow, error: membershipError } = await supabase
+    .from("memberships")
+    .insert({
+      gym_id: gymId,
+      member_id: memberRow.id,
+      plan_id: plan.id,
+      start_date: values.join_date,
+      end_date: end.toISOString().slice(0, 10),
+      price: plan.price,
+      status: "active",
+    })
+    .select("id")
+    .single();
+
+  if (membershipError || !membershipRow) {
+    throw membershipError ?? new Error("Failed to create membership");
+  }
+
+  const paidAt = `${values.join_date}T12:00:00.000Z`;
+  const { error: paymentError } = await supabase.from("payments").insert({
     gym_id: gymId,
     member_id: memberRow.id,
-    plan_id: plan.id,
-    start_date: values.join_date,
-    end_date: end.toISOString().slice(0, 10),
-    price: plan.price,
-    status: "active",
+    membership_id: membershipRow.id,
+    amount: plan.price,
+    payment_method: "cash",
+    paid_at: paidAt,
+    counts_toward_revenue: true,
   });
 
-  if (membershipError) {
-    throw membershipError;
+  if (paymentError && !/counts_toward_revenue|column/i.test(paymentError.message)) {
+    const { error: legacyPaymentError } = await supabase.from("payments").insert({
+      gym_id: gymId,
+      member_id: memberRow.id,
+      membership_id: membershipRow.id,
+      amount: plan.price,
+      payment_method: "cash",
+      paid_at: paidAt,
+    });
+
+    if (legacyPaymentError) {
+      throw legacyPaymentError;
+    }
   }
 
   return fetchGymMembers(gymId);
 }
 
-export async function updateGymMember(gymId: string, memberId: string, values: MemberFormValues) {
+export async function updateGymMember(gymId: string, memberId: string, values: MemberFormValues, locale: "en" | "fa" = "en") {
   const supabase = createSupabaseBrowserClient();
 
   const { error: memberError } = await supabase
@@ -248,7 +323,7 @@ export async function updateGymMember(gymId: string, memberId: string, values: M
       phone: values.phone.trim(),
       zip_code: values.zip_code.trim() || null,
       national_id: values.national_id.trim() || null,
-      preferred_language: values.preferred_language,
+      preferred_language: locale,
       status: values.status,
       join_date: values.join_date,
     })
@@ -262,13 +337,45 @@ export async function updateGymMember(gymId: string, memberId: string, values: M
   return fetchGymMembers(gymId);
 }
 
-export async function deleteGymMember(gymId: string, memberId: string) {
+export async function deleteGymMember(gymId: string, memberId: string, wasPaid: boolean) {
   const supabase = createSupabaseBrowserClient();
 
-  const { error } = await supabase.from("members").delete().eq("id", memberId).eq("gym_id", gymId);
+  const { error: rpcError } = await supabase.rpc("delete_gym_member_with_income_choice", {
+    p_gym_id: gymId,
+    p_member_id: memberId,
+    p_was_paid: wasPaid,
+  });
 
-  if (error) {
-    throw error;
+  if (!rpcError) {
+    return fetchGymMembers(gymId);
+  }
+
+  if (wasPaid) {
+    const { error } = await supabase.from("members").delete().eq("id", memberId).eq("gym_id", gymId);
+    if (error) {
+      throw rpcError ?? error;
+    }
+    return fetchGymMembers(gymId);
+  }
+
+  const { error: paymentError } = await supabase
+    .from("payments")
+    .delete()
+    .eq("gym_id", gymId)
+    .eq("member_id", memberId);
+
+  if (paymentError) {
+    throw rpcError ?? paymentError;
+  }
+
+  const { error: memberError } = await supabase
+    .from("members")
+    .delete()
+    .eq("id", memberId)
+    .eq("gym_id", gymId);
+
+  if (memberError) {
+    throw memberError;
   }
 
   return fetchGymMembers(gymId);

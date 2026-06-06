@@ -2,8 +2,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 
 export function PanelSkeleton() {
   return (
-    <div className="flex min-h-screen flex-col lg:min-h-[calc(100vh-2.5rem)]">
-      <div className="surface-panel mb-4 flex items-center justify-between gap-4 px-4 py-3 sm:px-5">
+    <div className="panel-page-body">
+      <header className="surface-panel mb-4 flex shrink-0 items-center justify-between gap-4 px-4 py-3 sm:px-5">
         <div className="flex items-center gap-3">
           <Skeleton className="size-10 shrink-0" />
           <div className="space-y-2">
@@ -12,9 +12,9 @@ export function PanelSkeleton() {
           </div>
         </div>
         <Skeleton className="h-10 w-28" />
-      </div>
+      </header>
 
-      <div className="flex flex-1 flex-col gap-4 lg:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
         <aside className="surface-panel hidden w-64 shrink-0 p-4 lg:block">
           <Skeleton className="mb-4 h-3 w-16" />
           <div className="space-y-2">
@@ -24,8 +24,8 @@ export function PanelSkeleton() {
           </div>
         </aside>
 
-        <main className="surface-panel min-h-[24rem] flex-1 p-5 sm:p-7">
-          <div className="mb-6 flex gap-4 border-b border-border pb-5">
+        <main className="panel-main-card surface-panel p-5 sm:p-7">
+          <div className="panel-main-header mb-6 flex gap-4 border-b border-border pb-5">
             <Skeleton className="size-12 shrink-0" />
             <div className="flex-1 space-y-2">
               <Skeleton className="h-8 w-48" />

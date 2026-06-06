@@ -20,6 +20,7 @@ create table if not exists public.gyms (
   phone text not null default '',
   logo_url text,
   base_currency text not null default 'EUR',
+  enabled_sections text[] not null default array['overview','members','memberships','revenue','coaches','attendance','signup','profile'],
   created_at timestamptz not null default now()
 );
 
@@ -216,7 +217,8 @@ create or replace function public.create_owner_gym_with_plans(
   p_address text,
   p_phone text,
   p_base_currency text default 'EUR',
-  p_plans jsonb default '[]'::jsonb
+  p_plans jsonb default '[]'::jsonb,
+  p_enabled_sections text[] default array['overview','members','memberships','revenue','coaches','attendance','signup','profile']
 )
 returns jsonb
 language plpgsql
@@ -235,14 +237,15 @@ begin
 
   perform public.ensure_owner_profile('', '');
 
-  insert into public.gyms (owner_id, name, slug, address, phone, base_currency)
+  insert into public.gyms (owner_id, name, slug, address, phone, base_currency, enabled_sections)
   values (
     auth.uid(),
     trim(p_name),
     trim(p_slug),
     trim(p_address),
     trim(p_phone),
-    coalesce(nullif(trim(p_base_currency), ''), 'EUR')
+    coalesce(nullif(trim(p_base_currency), ''), 'EUR'),
+    coalesce(p_enabled_sections, array['overview','members','memberships','revenue','coaches','attendance','signup','profile'])
   )
   returning * into v_gym;
 
@@ -275,8 +278,8 @@ begin
 end;
 $$;
 
-revoke all on function public.create_owner_gym_with_plans(text, text, text, text, text, jsonb) from public;
-grant execute on function public.create_owner_gym_with_plans(text, text, text, text, text, jsonb) to authenticated;
+revoke all on function public.create_owner_gym_with_plans(text, text, text, text, text, jsonb, text[]) from public;
+grant execute on function public.create_owner_gym_with_plans(text, text, text, text, text, jsonb, text[]) to authenticated;
 
 -- RLS
 alter table public.profiles enable row level security;

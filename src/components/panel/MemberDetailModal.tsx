@@ -5,6 +5,7 @@ import { Modal } from "@/components/Modal";
 import { PlanRingChart } from "@/components/ui/PlanRingChart";
 import { StaffAvatar } from "@/components/ui/StaffAvatar";
 import { getTranslation } from "@/lib/i18n/translations";
+import { formatDate } from "@/lib/date/format";
 import { computeDaysLeft, planRemainingLabel } from "@/lib/members/membership-utils";
 import { formatMemberStatus } from "@/lib/members/portal-utils";
 import type { MemberWithMeta } from "@/lib/members/types";
@@ -123,7 +124,7 @@ export function MemberDetailModal({
           )}
 
           <dl className="grid flex-1 gap-3 text-sm sm:grid-cols-2">
-            <DetailRow label={t("memberJoinDate")} value={member.join_date} />
+            <DetailRow label={t("memberJoinDate")} value={formatDate(member.join_date, locale)} />
             <DetailRow
               label={t("memberLanguage")}
               value={member.preferred_language === "fa" ? "فارسی" : "English"}
@@ -134,8 +135,8 @@ export function MemberDetailModal({
             ) : null}
             {membership ? (
               <>
-                <DetailRow label={t("memberPortalStarts")} value={membership.start_date} />
-                <DetailRow label={t("memberPortalEnds")} value={membership.end_date} />
+                <DetailRow label={t("memberPortalStarts")} value={formatDate(membership.start_date, locale)} />
+                <DetailRow label={t("memberPortalEnds")} value={formatDate(membership.end_date, locale)} />
                 <DetailRow
                   label={t("memberPortalPrice")}
                   value={`${membership.price} ${currency}`}

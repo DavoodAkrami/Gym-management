@@ -4,6 +4,11 @@ import { FiPlus, FiTrash2 } from "react-icons/fi";
 import { CurrencySelect } from "@/components/CurrencySelect";
 import { getTranslation } from "@/lib/i18n/translations";
 import { normalizeGymCurrency, type GymCurrencyCode } from "@/lib/currency/options";
+import {
+  DEFAULT_ENABLED_SECTIONS,
+  panelSections,
+  type PanelSectionId,
+} from "@/lib/panel/sections";
 import type { Locale } from "@/lib/store/slices";
 
 export type PlanDraft = {
@@ -45,11 +50,13 @@ type GymSetupFieldsProps = {
   address: string;
   phone: string;
   baseCurrency: string;
+  enabledSections: string[];
   plans: PlanDraft[];
   onGymNameChange: (value: string) => void;
   onAddressChange: (value: string) => void;
   onPhoneChange: (value: string) => void;
   onBaseCurrencyChange: (value: string) => void;
+  onEnabledSectionsChange: (sections: string[]) => void;
   onPlansChange: (plans: PlanDraft[]) => void;
 };
 
@@ -59,11 +66,13 @@ export function GymSetupFields({
   address,
   phone,
   baseCurrency,
+  enabledSections,
   plans,
   onGymNameChange,
   onAddressChange,
   onPhoneChange,
   onBaseCurrencyChange,
+  onEnabledSectionsChange,
   onPlansChange,
 }: GymSetupFieldsProps) {
   const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(locale, key);
@@ -117,6 +126,33 @@ export function GymSetupFields({
               onChange={(value: GymCurrencyCode) => onBaseCurrencyChange(value)}
             />
           </div>
+        </div>
+      </fieldset>
+
+      <fieldset className="space-y-3">
+        <legend className="text-sm font-black text-foreground">{t("onboardingPanelsSection")}</legend>
+        <p className="text-xs font-medium text-muted-foreground">{t("onboardingPanelsDesc")}</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {panelSections.map((section) => (
+            <label
+              key={section.id}
+              className="flex cursor-pointer items-center gap-3 rounded-xl border border-glass-border bg-glass/40 px-3 py-2.5 text-sm font-bold text-foreground has-checked:border-primary/40 has-checked:bg-primary/5"
+            >
+              <input
+                type="checkbox"
+                checked={enabledSections.includes(section.id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    onEnabledSectionsChange([...enabledSections, section.id]);
+                  } else {
+                    onEnabledSectionsChange(enabledSections.filter((id) => id !== section.id));
+                  }
+                }}
+                className="size-4 accent-primary"
+              />
+              {t(section.labelKey)}
+            </label>
+          ))}
         </div>
       </fieldset>
 

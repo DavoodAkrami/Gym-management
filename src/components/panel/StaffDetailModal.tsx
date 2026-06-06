@@ -5,6 +5,7 @@ import { Modal } from "@/components/Modal";
 import { PlanRingChart } from "@/components/ui/PlanRingChart";
 import { StaffAvatar } from "@/components/ui/StaffAvatar";
 import { getTranslation } from "@/lib/i18n/translations";
+import { formatDate } from "@/lib/date/format";
 import { computeDaysLeft, planRemainingLabel } from "@/lib/members/membership-utils";
 import type { GymCoach, GymTrainer, StaffStatus } from "@/lib/staff/types";
 import type { Locale } from "@/lib/store/slices";
@@ -145,8 +146,8 @@ export function StaffDetailModal({
             {person.phone ? <DetailRow label={t("memberPhone")} value={person.phone} /> : null}
             {person.email ? <DetailRow label={t("staffEmail")} value={person.email} /> : null}
             {person.specialty ? <DetailRow label={t("staffSpecialty")} value={person.specialty} /> : null}
-            <DetailRow label={t("memberPortalStarts")} value={contractStart} />
-            <DetailRow label={t("memberPortalEnds")} value={contractEnd} />
+            <DetailRow label={t("memberPortalStarts")} value={formatDate(contractStart, locale)} />
+            <DetailRow label={t("memberPortalEnds")} value={formatDate(contractEnd, locale)} />
             {person.salary != null ? (
               <DetailRow label={t("staffSalary")} value={`${person.salary} ${currency}`} />
             ) : null}

@@ -11,7 +11,13 @@ const localeOptions: { value: Locale; label: string; hint: string }[] = [
   { value: "fa", label: "فارسی", hint: "FA" },
 ];
 
-export function LanguageSelect({ className = "" }: { className?: string }) {
+export function LanguageSelect({
+  className = "",
+  compact = false,
+}: {
+  className?: string;
+  compact?: boolean;
+}) {
   const dispatch = useAppDispatch();
   const locale = useAppSelector((state) => state.ui.locale);
 
@@ -23,6 +29,7 @@ export function LanguageSelect({ className = "" }: { className?: string }) {
       options={localeOptions}
       icon={<FiGlobe aria-hidden="true" />}
       onChange={(nextLocale) => dispatch(uiActions.setLocale(nextLocale))}
+      compact={compact}
     />
   );
 }

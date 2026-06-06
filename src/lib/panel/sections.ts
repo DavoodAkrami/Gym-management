@@ -80,6 +80,17 @@ export const panelSections: PanelSection[] = [
   },
 ];
 
+export const DEFAULT_ENABLED_SECTIONS: PanelSectionId[] = [
+  "overview",
+  "members",
+  "memberships",
+  "revenue",
+  "coaches",
+  "attendance",
+  "signup",
+  "profile",
+];
+
 /** Coach portal: same section ids, personal profile nav label */
 export const coachProfileSectionMeta = {
   labelKey: "panelNavProfile" as const,

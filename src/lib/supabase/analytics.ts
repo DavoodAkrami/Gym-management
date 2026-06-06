@@ -1,7 +1,15 @@
 import type { ChartTimeline } from "@/lib/panel/timeline";
-import { buildDateBuckets, dateKeyForBucket, getTimelineRange } from "@/lib/panel/timeline";
+import {
+  buildDateBuckets,
+  dateKeyForBucket,
+  getTimelineRange,
+  isDateKeyInRange,
+  parseChartDate,
+  toLocalDateKey,
+  toLocalMonthKey,
+} from "@/lib/panel/timeline";
 import { createSupabaseBrowserClient } from "./client";
-import type { MemberRow, PaymentRow } from "./database.types";
+import type { MemberRow, MembershipRow, PaymentRow } from "./database.types";
 
 export type ChartPoint = {
   key: string;
@@ -9,64 +17,25 @@ export type ChartPoint = {
   value: number;
 };
 
-export async function fetchMemberSignupSeries(gymId: string, timeline: ChartTimeline) {
-  const supabase = createSupabaseBrowserClient();
-  const { start, end } = getTimelineRange(timeline);
-
-  const { data, error } = await supabase
-    .from("members")
-    .select("created_at, join_date")
-    .eq("gym_id", gymId)
-    .gte("created_at", start.toISOString())
-    .lte("created_at", end.toISOString());
-
-  if (error) {
-    throw error;
-  }
-
-  const buckets = buildDateBuckets(timeline);
-  const counts = new Map(buckets.map((bucket) => [bucket.key, 0]));
-
-  (data as Pick<MemberRow, "created_at" | "join_date">[]).forEach((row) => {
-    const source = row.created_at || row.join_date;
-    if (!source) {
-      return;
-    }
-    const key = dateKeyForBucket(new Date(source), timeline);
-    if (counts.has(key)) {
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-  });
-
-  return buckets.map((bucket) => ({
-    key: bucket.key,
-    label: bucket.label,
-    value: counts.get(bucket.key) ?? 0,
-  }));
-}
-
-export async function fetchRevenueSeries(gymId: string, timeline: ChartTimeline) {
-  const supabase = createSupabaseBrowserClient();
-  const { start, end } = getTimelineRange(timeline);
-
-  const { data, error } = await supabase
-    .from("payments")
-    .select("amount, paid_at")
-    .eq("gym_id", gymId)
-    .gte("paid_at", start.toISOString())
-    .lte("paid_at", end.toISOString());
-
-  if (error) {
-    throw error;
-  }
-
-  const buckets = buildDateBuckets(timeline);
+function bucketRows<T>(
+  rows: T[],
+  timeline: ChartTimeline,
+  getDate: (row: T) => string | null | undefined,
+  getValue: (row: T) => number,
+  locale?: string,
+) {
+  const buckets = buildDateBuckets(timeline, locale);
   const totals = new Map(buckets.map((bucket) => [bucket.key, 0]));
 
-  (data as Pick<PaymentRow, "amount" | "paid_at">[]).forEach((row) => {
-    const key = dateKeyForBucket(new Date(row.paid_at), timeline);
+  rows.forEach((row) => {
+    const raw = getDate(row);
+    if (!raw) {
+      return;
+    }
+
+    const key = dateKeyForBucket(parseChartDate(raw), timeline);
     if (totals.has(key)) {
-      totals.set(key, (totals.get(key) ?? 0) + Number(row.amount));
+      totals.set(key, (totals.get(key) ?? 0) + getValue(row));
     }
   });
 
@@ -75,4 +44,124 @@ export async function fetchRevenueSeries(gymId: string, timeline: ChartTimeline)
     label: bucket.label,
     value: totals.get(bucket.key) ?? 0,
   }));
+}
+
+export async function fetchMemberSignupSeries(gymId: string, timeline: ChartTimeline, locale?: string) {
+  const supabase = createSupabaseBrowserClient();
+  const { start, end } = getTimelineRange(timeline);
+
+  const { data, error } = await supabase
+    .from("members")
+    .select("join_date, created_at")
+    .eq("gym_id", gymId);
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = (data as Pick<MemberRow, "join_date" | "created_at">[]).filter((row) => {
+    const source = row.join_date || row.created_at;
+    if (!source) {
+      return false;
+    }
+
+    const key =
+      timeline === "12m"
+        ? toLocalMonthKey(parseChartDate(source))
+        : toLocalDateKey(parseChartDate(source));
+
+    return isDateKeyInRange(key, start, end, timeline);
+  });
+
+  return bucketRows(
+    rows,
+    timeline,
+    (row) => row.join_date || row.created_at,
+    () => 1,
+    locale,
+  );
+}
+
+async function fetchPaymentRows(gymId: string, start: Date, end: Date) {
+  const supabase = createSupabaseBrowserClient();
+
+  const withFlag = await supabase
+    .from("payments")
+    .select("amount, paid_at")
+    .eq("gym_id", gymId)
+    .eq("counts_toward_revenue", true)
+    .gte("paid_at", start.toISOString())
+    .lte("paid_at", end.toISOString());
+
+  if (!withFlag.error) {
+    return withFlag.data as Pick<PaymentRow, "amount" | "paid_at">[];
+  }
+
+  if (!/counts_toward_revenue/i.test(withFlag.error.message)) {
+    throw withFlag.error;
+  }
+
+  const fallback = await supabase
+    .from("payments")
+    .select("amount, paid_at")
+    .eq("gym_id", gymId)
+    .gte("paid_at", start.toISOString())
+    .lte("paid_at", end.toISOString());
+
+  if (fallback.error) {
+    throw fallback.error;
+  }
+
+  return fallback.data as Pick<PaymentRow, "amount" | "paid_at">[];
+}
+
+async function fetchMembershipRevenueRows(gymId: string, start: Date, end: Date) {
+  const supabase = createSupabaseBrowserClient();
+  const startKey = toLocalDateKey(start);
+  const endKey = toLocalDateKey(end);
+
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("price, start_date")
+    .eq("gym_id", gymId)
+    .gte("start_date", startKey)
+    .lte("start_date", endKey);
+
+  if (error) {
+    throw error;
+  }
+
+  return data as Pick<MembershipRow, "price" | "start_date">[];
+}
+
+export async function fetchRevenueSeries(gymId: string, timeline: ChartTimeline, locale?: string) {
+  const { start, end } = getTimelineRange(timeline);
+
+  let paymentRows: Pick<PaymentRow, "amount" | "paid_at">[] = [];
+
+  try {
+    paymentRows = await fetchPaymentRows(gymId, start, end);
+  } catch {
+    paymentRows = [];
+  }
+
+  if (paymentRows.length > 0) {
+    return bucketRows(
+      paymentRows,
+      timeline,
+      (row) => row.paid_at,
+      (row) => Number(row.amount),
+      locale,
+    );
+  }
+
+  const membershipRows = await fetchMembershipRevenueRows(gymId, start, end);
+
+  return bucketRows(
+    membershipRows,
+    timeline,
+    (row) => row.start_date,
+    (row) => Number(row.price),
+    locale,
+  );
 }

@@ -1,4 +1,5 @@
 import type { MemberFilter, MemberWithMeta } from "./types";
+import { computeDaysLeft } from "./membership-utils";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -25,11 +26,7 @@ export function isExpiringSoon(member: MemberWithMeta, now = new Date()) {
   if (!membership || membership.status !== "active") {
     return false;
   }
-
-  const today = startOfDay(now);
-  const end = parseDate(membership.end_date);
-  const inThreeDays = new Date(today.getTime() + 3 * MS_PER_DAY);
-  return end >= today && end <= inThreeDays;
+  return computeDaysLeft(membership.end_date, now) < 3;
 }
 
 export function hasActiveMembership(member: MemberWithMeta) {

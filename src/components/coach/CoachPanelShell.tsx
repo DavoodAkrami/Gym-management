@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FiMenu, FiX } from "react-icons/fi";
-import { LanguageSelect } from "@/components/LanguageSelect";
+import { PreferencesBar } from "@/components/PreferencesBar";
 import { CoachSectionContent } from "@/components/coach/CoachSectionContent";
 import { ListSkeleton } from "@/components/panel/PanelSkeleton";
 import { PanelNavList } from "@/components/panel/PanelNavList";
@@ -188,19 +188,19 @@ export function CoachPanelShell({ slug }: CoachPanelShellProps) {
         </div>
       </aside>
 
-      <header className="surface-panel mb-4 flex shrink-0 items-center justify-between gap-4 px-4 py-3 ps-14 sm:px-5 sm:ps-16 lg:ps-5">
-        <div className="flex min-w-0 items-center gap-3">
+      <header className="panel-shell-header surface-panel mb-4 flex shrink-0 flex-wrap items-center justify-between gap-2 px-4 py-3 sm:gap-3 sm:px-5 lg:px-5">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <span className="brand-mark grid size-10 shrink-0 place-items-center rounded-xl text-sm font-black">
             GM
           </span>
           <div className="min-w-0">
-            <p className="truncate text-base font-black text-foreground">{portal.gym.name}</p>
+            <p className="truncate text-sm font-black text-foreground sm:text-base">{portal.gym.name}</p>
             <p className="truncate text-xs font-semibold text-muted-foreground">
               {portal.coach.full_name || authUser?.email || t("coachPortalEyebrow")}
             </p>
           </div>
         </div>
-        <LanguageSelect />
+        <PreferencesBar className="ms-auto" />
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">

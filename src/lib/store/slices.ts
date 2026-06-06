@@ -14,6 +14,7 @@ export type Gym = {
   phone: string;
   logo_url?: string;
   base_currency: string;
+  enabled_sections?: string[];
 };
 
 export type GymPlan = {
@@ -100,6 +101,7 @@ export type AuthState = {
 };
 
 export type Locale = "en" | "fa";
+export type ColorTheme = "ocean" | "midnight";
 
 export type GymsState = EntityState<Gym> & {
   currentGymId: string;
@@ -121,6 +123,7 @@ export type AiState = {
 
 export type UiState = {
   locale: Locale;
+  colorTheme: ColorTheme;
   loading: boolean;
   selectedMemberId: string | null;
   selectedCoachId: string | null;
@@ -308,7 +311,8 @@ const signupSlice = createSlice({
 const uiSlice = createSlice({
   name: "ui",
   initialState: {
-    locale: "en",
+    locale: "fa",
+    colorTheme: "ocean",
     loading: false,
     selectedMemberId: null,
     selectedCoachId: null,
@@ -320,6 +324,9 @@ const uiSlice = createSlice({
   reducers: {
     setLocale(state, action: PayloadAction<Locale>) {
       state.locale = action.payload;
+    },
+    setColorTheme(state, action: PayloadAction<ColorTheme>) {
+      state.colorTheme = action.payload;
     },
     setLoading(state, action: PayloadAction<boolean>) {
       state.loading = action.payload;

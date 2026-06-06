@@ -7,8 +7,6 @@ export type GymProfileInput = {
   name: string;
   address: string;
   phone: string;
-  base_currency: string;
-  logo_url?: string | null;
 };
 
 export type GymPlanInput = {
@@ -27,6 +25,7 @@ function mapGym(row: GymRow): Gym {
     phone: row.phone,
     logo_url: row.logo_url ?? undefined,
     base_currency: row.base_currency,
+    enabled_sections: row.enabled_sections ?? undefined,
   };
 }
 
@@ -76,15 +75,33 @@ export async function fetchGymProfile(gymId: string) {
 export async function updateGymProfile(gymId: string, input: GymProfileInput) {
   const supabase = createSupabaseBrowserClient();
 
+  const updateData: Record<string, unknown> = {
+    name: input.name.trim(),
+    address: input.address.trim(),
+    phone: input.phone.trim(),
+    base_currency: "IRT",
+  };
+
   const { data, error } = await supabase
     .from("gyms")
-    .update({
-      name: input.name.trim(),
-      address: input.address.trim(),
-      phone: input.phone.trim(),
-      base_currency: input.base_currency.trim() || "EUR",
-      logo_url: input.logo_url?.trim() || null,
-    })
+    .update(updateData)
+    .eq("id", gymId)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapGym(data as GymRow);
+}
+
+export async function updateGymSections(gymId: string, sections: string[]) {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase
+    .from("gyms")
+    .update({ enabled_sections: sections })
     .eq("id", gymId)
     .select("*")
     .single();

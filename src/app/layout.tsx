@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Vazirmatn } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Providers } from "./providers";
+import { COLOR_THEME_STORAGE_KEY } from "@/lib/theme";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,9 +33,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-color-theme="ocean"
       className={`${geistSans.variable} ${geistMono.variable} ${vazirmatn.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
+        <Script
+          id="color-theme-init"
+          strategy="beforeInteractive"
+        >{`(function(){try{var t=localStorage.getItem("${COLOR_THEME_STORAGE_KEY}");if(t==="ocean"||t==="midnight"){document.documentElement.dataset.colorTheme=t;}}catch(e){}})();`}</Script>
         <Providers>{children}</Providers>
       </body>
     </html>

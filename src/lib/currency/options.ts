@@ -3,11 +3,10 @@ import type { TranslationKey } from "@/lib/i18n/translations";
 import type { Locale } from "@/lib/store/slices";
 import { getTranslation } from "@/lib/i18n/translations";
 
-export const GYM_CURRENCY_CODES = ["USD", "IRT"] as const;
+export const GYM_CURRENCY_CODES = ["IRT"] as const;
 export type GymCurrencyCode = (typeof GYM_CURRENCY_CODES)[number];
 
 const currencyLabelKeys: Record<GymCurrencyCode, TranslationKey> = {
-  USD: "currencyUsd",
   IRT: "currencyToman",
 };
 
@@ -20,7 +19,7 @@ export function normalizeGymCurrency(value: string | undefined | null): GymCurre
   if (upper === "IRT" || upper === "TOMAN" || upper === "IRR") {
     return "IRT";
   }
-  return "USD";
+  return "IRT";
 }
 
 export function gymCurrencyOptions(locale: Locale): SelectBarOption<GymCurrencyCode>[] {

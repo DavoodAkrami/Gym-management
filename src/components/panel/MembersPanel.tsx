@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiEdit2, FiFilter, FiPlus, FiTrash2 } from "react-icons/fi";
 import { Modal } from "@/components/Modal";
 import { MemberDetailModal } from "@/components/panel/MemberDetailModal";
 import { MemberFormModal } from "@/components/panel/MemberFormModal";
 import { ListSkeleton } from "@/components/panel/PanelSkeleton";
-import { SelectBar, type SelectBarOption } from "@/components/SelectBar";
 import { Spinner } from "@/components/ui/Spinner";
+import { SelectBar } from "@/components/SelectBar";
+import type { SelectBarOption } from "@/components/SelectBar";
 import { getTranslation } from "@/lib/i18n/translations";
+import { formatDate } from "@/lib/date/format";
 import {
   filterMembersByQuery,
   filterMembersByType,
@@ -19,13 +21,15 @@ import type { MemberFilter, MemberFormValues, MemberWithMeta } from "@/lib/membe
 import {
   createGymMember,
   deleteGymMember,
-  fetchGymMembers,
+  fetchMembersPage,
   fetchLapsedMembers,
   updateGymMember,
 } from "@/lib/supabase/members";
 import { membersActions } from "@/lib/store/slices";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import type { Locale } from "@/lib/store/slices";
+
+const PAGE_SIZE = 10;
 
 type MembersPanelProps = {
   gymId: string;
@@ -57,7 +61,9 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
 
   const [members, setMembers] = useState<MemberWithMeta[]>([]);
   const [lapsedMembers, setLapsedMembers] = useState<MemberWithMeta[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -65,27 +71,31 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
   const [sort, setSort] = useState<MemberSort>("join_desc");
   const [filterOpen, setFilterOpen] = useState(false);
   const [modal, setModal] = useState<ModalState>({ type: "none" });
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const loadMembers = useCallback(async () => {
+  const hasMore = members.length < totalCount;
+
+  const loadInitial = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const [activeList, lapsedList] = await Promise.all([
-        fetchGymMembers(gymId),
+      const [result, lapsedList] = await Promise.all([
+        fetchMembersPage(gymId, PAGE_SIZE, 0),
         fetchLapsedMembers(gymId),
       ]);
 
       const activeIds = new Set(
-        activeList.filter((member) => hasActiveMembership(member)).map((member) => member.id),
+        result.members.filter((member) => hasActiveMembership(member)).map((member) => member.id),
       );
 
       const lapsedOnly = lapsedList.filter((member) => !activeIds.has(member.id));
 
-      setMembers(activeList);
+      setMembers(result.members);
       setLapsedMembers(lapsedOnly);
+      setTotalCount(result.total);
 
-      activeList.forEach((member) => {
+      result.members.forEach((member) => {
         dispatch(
           membersActions.upsertMember({
             id: member.id,
@@ -110,9 +120,41 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
     }
   }, [gymId, dispatch, locale]);
 
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+
+    try {
+      const result = await fetchMembersPage(gymId, PAGE_SIZE, members.length);
+      setMembers((prev) => [...prev, ...result.members]);
+      setTotalCount(result.total);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [gymId, members.length, loadingMore, hasMore, t]);
+
   useEffect(() => {
-    void loadMembers();
-  }, [loadMembers]);
+    void loadInitial();
+  }, [loadInitial]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          void loadMore();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loadMore]);
 
   const mainListMembers = useMemo(() => {
     const lapsedIds = new Set(lapsedMembers.map((member) => member.id));
@@ -151,12 +193,12 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
 
     try {
       if (modal.type === "add") {
-        await createGymMember(gymId, values);
+        await createGymMember(gymId, values, locale);
       } else if (modal.type === "edit") {
-        await updateGymMember(gymId, modal.member.id, values);
+        await updateGymMember(gymId, modal.member.id, values, locale);
       }
       setModal({ type: "none" });
-      await loadMembers();
+      await loadInitial();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
     } finally {
@@ -164,7 +206,7 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = async (wasPaid: boolean) => {
     if (modal.type !== "delete") {
       return;
     }
@@ -173,9 +215,9 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
     setError(null);
 
     try {
-      await deleteGymMember(gymId, modal.member.id);
+      await deleteGymMember(gymId, modal.member.id, wasPaid);
       setModal({ type: "none" });
-      await loadMembers();
+      await loadInitial();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
     } finally {
@@ -207,14 +249,14 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
         <p className="mt-1 text-xs font-bold text-muted-foreground">
           {member.currentMembership?.plan_name ?? member.latestMembership?.plan_name ?? t("memberNoPlan")}
           {member.currentMembership
-            ? ` · ${t("memberEnds")} ${member.currentMembership.end_date}`
+            ? ` · ${t("memberEnds")} ${formatDate(member.currentMembership.end_date, locale)}`
             : member.latestMembership
-              ? ` · ${t("memberEnded")} ${member.latestMembership.end_date}`
+              ? ` · ${t("memberEnded")} ${formatDate(member.latestMembership.end_date, locale)}`
               : ""}
         </p>
         {lapsed && member.lapse_visible_until ? (
           <p className="mt-1 text-xs font-bold text-muted-foreground">
-            {t("memberLapseUntil")}: {member.lapse_visible_until}
+            {t("memberLapseUntil")}: {formatDate(member.lapse_visible_until, locale)}
           </p>
         ) : null}
       </div>
@@ -324,8 +366,19 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
             {filteredMembers.length === 0 ? (
               <p className="text-sm font-bold text-muted-foreground">{t("memberEmpty")}</p>
             ) : (
-              filteredMembers.map((member) => renderMemberRow(member))
+              <>
+                {filteredMembers.map((member) => renderMemberRow(member))}
+                <div ref={sentinelRef} className="h-4" />
+              </>
             )}
+            {loadingMore && members.length < totalCount ? (
+              <div className="flex justify-center py-4">
+                <Spinner label={t("uiLoading")} />
+              </div>
+            ) : null}
+            {!hasMore && members.length > 0 ? (
+              <p className="text-center text-xs font-bold text-muted-foreground">{t("memberAllLoaded")}</p>
+            ) : null}
           </section>
 
           <section className="space-y-3 border-t border-border pt-6">
@@ -376,7 +429,7 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
         onClose={() => setModal({ type: "none" })}
         title={t("memberDeleteTitle")}
         footer={
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
             <button
               type="button"
               className="rounded-xl border border-glass-border px-4 py-2 text-sm font-bold"
@@ -388,21 +441,39 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
               type="button"
               disabled={saving}
               className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-2 text-sm font-black text-danger"
-              onClick={() => void handleDelete()}
+              onClick={() => void handleDelete(false)}
             >
-              {saving ? <Spinner label={t("uiDeleting")} /> : t("memberDeleteConfirm")}
+              {saving ? <Spinner label={t("uiDeleting")} /> : t("memberDeleteRemoveIncome")}
+            </button>
+            <button
+              type="button"
+              disabled={saving}
+              className="rounded-xl border border-glass-border bg-glass px-4 py-2 text-sm font-black text-foreground"
+              onClick={() => void handleDelete(true)}
+            >
+              {saving ? <Spinner label={t("uiDeleting")} /> : t("memberDeleteKeepIncome")}
             </button>
           </div>
         }
       >
-        <p className="text-sm font-medium text-muted-foreground">
-          {modal.type === "delete"
-            ? t("memberDeleteMessage").replace(
-                "{name}",
-                `${modal.member.first_name} ${modal.member.last_name}`,
-              )
-            : ""}
-        </p>
+        {modal.type === "delete" ? (
+          <div className="space-y-3 text-sm font-medium text-muted-foreground">
+            <p>
+              {t("memberDeleteMessage")
+                .replace("{name}", `${modal.member.first_name} ${modal.member.last_name}`)
+                .replace(
+                  "{amount}",
+                  String(
+                    modal.member.currentMembership?.price ??
+                      modal.member.latestMembership?.price ??
+                      0,
+                  ),
+                )
+                .replace("{currency}", currency)}
+            </p>
+            <p className="font-bold text-foreground">{t("memberDeletePaidQuestion")}</p>
+          </div>
+        ) : null}
       </Modal>
     </div>
   );

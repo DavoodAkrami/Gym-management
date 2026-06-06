@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FiLogOut } from "react-icons/fi";
-import { LanguageSelect } from "@/components/LanguageSelect";
+import { PreferencesBar } from "@/components/PreferencesBar";
 import { getTranslation } from "@/lib/i18n/translations";
 import { authActions } from "@/lib/store/slices";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
@@ -28,20 +28,20 @@ export function TrainerShell({ children, gymName }: TrainerShellProps) {
 
   return (
     <div className="panel-page-body mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4">
-      <header className="surface-panel flex shrink-0 flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
-        <div className="flex min-w-0 items-center gap-3">
+      <header className="surface-panel flex shrink-0 flex-wrap items-center justify-between gap-2 px-4 py-3 sm:gap-3 sm:px-5">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <span className="brand-mark grid size-10 shrink-0 place-items-center rounded-lg text-sm font-black">
             GM
           </span>
           <div className="min-w-0">
             <p className="text-eyebrow">{t("trainerPortalEyebrow")}</p>
-            <p className="truncate text-base font-black text-foreground">
+            <p className="truncate text-sm font-black text-foreground sm:text-base">
               {gymName ?? t("brandName")}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <LanguageSelect />
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <PreferencesBar />
           <button
             type="button"
             onClick={() => void handleSignOut()}

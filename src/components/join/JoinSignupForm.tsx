@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { SelectBar, type SelectBarOption } from "@/components/SelectBar";
-import { LanguageSelect } from "@/components/LanguageSelect";
+import { PreferencesBar } from "@/components/PreferencesBar";
 import { authUserFromSession } from "@/lib/auth/roles";
 import { formatAuthError } from "@/lib/auth/post-login";
 import { resolveSessionAfterSignUp } from "@/lib/auth/session";
@@ -44,13 +44,7 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [planId, setPlanId] = useState("");
-  const [preferredLanguage, setPreferredLanguage] = useState<"en" | "fa">(locale);
-
   const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(locale, key);
-
-  useEffect(() => {
-    setPreferredLanguage(locale);
-  }, [locale]);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,14 +92,6 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
         hint: `${plan.price} ${context?.gym.base_currency ?? ""} · ${plan.duration_days}d`,
       })),
     [context],
-  );
-
-  const languageOptions: SelectBarOption<"en" | "fa">[] = useMemo(
-    () => [
-      { value: "en", label: "English", hint: "EN" },
-      { value: "fa", label: "فارسی", hint: "FA" },
-    ],
-    [],
   );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -167,7 +153,7 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
         plan_id: planId,
         zip_code: locale === "en" ? zipCode : undefined,
         national_id: locale === "fa" ? nationalId : undefined,
-        preferred_language: preferredLanguage,
+        preferred_language: locale,
       });
 
       setSuccess(true);
@@ -210,13 +196,13 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
     );
   }
 
-  const showZip = preferredLanguage === "en";
-  const showNationalId = preferredLanguage === "fa";
+  const showZip = locale === "en";
+  const showNationalId = locale === "fa";
 
   return (
     <div className="w-full max-w-lg">
       <div className="mb-4 flex justify-end">
-        <LanguageSelect />
+        <PreferencesBar />
       </div>
 
       <div className="surface-panel p-7 sm:p-9">
@@ -241,18 +227,6 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
             <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberPhone")}</span>
             <input required value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3" />
           </label>
-
-          <div className="sm:col-span-2">
-            <SelectBar
-              fullWidth
-              portalMenu
-              align="start"
-              label={t("memberLanguage")}
-              value={preferredLanguage}
-              options={languageOptions}
-              onChange={setPreferredLanguage}
-            />
-          </div>
 
           {showZip ? (
             <label className="block sm:col-span-2">

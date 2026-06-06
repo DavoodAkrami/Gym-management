@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { SelectBar, type SelectBarOption } from "@/components/SelectBar";
-import { LanguageSelect } from "@/components/LanguageSelect";
+import { PreferencesBar } from "@/components/PreferencesBar";
 import { ListSkeleton } from "@/components/panel/PanelSkeleton";
 import { StaffAvatar } from "@/components/ui/StaffAvatar";
 import { Spinner } from "@/components/ui/Spinner";
@@ -188,13 +188,13 @@ export function TrainerSignupForm({ gymSlug }: TrainerSignupFormProps) {
 
   return (
     <div className="glass-panel w-full max-w-xl p-7 sm:p-9">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <p className="text-eyebrow">{t("trainerSignupEyebrow")}</p>
           <h1 className="mt-2 text-2xl font-black text-foreground">{gymName}</h1>
           <p className="mt-2 text-sm font-medium text-muted-foreground">{t("trainerSignupSubtitle")}</p>
         </div>
-        <LanguageSelect />
+        <PreferencesBar className="self-end sm:shrink-0" />
       </div>
 
       <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
