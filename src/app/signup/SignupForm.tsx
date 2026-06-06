@@ -35,6 +35,7 @@ export function SignupForm() {
   const [phone, setPhone] = useState("");
   const [baseCurrency, setBaseCurrency] = useState("IRT");
   const [enabledSections, setEnabledSections] = useState<string[]>(DEFAULT_ENABLED_SECTIONS);
+  const [publicSignupEnabled, setPublicSignupEnabled] = useState(false);
   const [plans, setPlans] = useState<PlanDraft[]>(() => defaultPlanDrafts(locale));
 
   const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(locale, key);
@@ -166,6 +167,7 @@ export function SignupForm() {
         phone,
         baseCurrency,
         enabledSections,
+        publicSignupEnabled,
         plans: parsedPlans,
       });
 
@@ -246,12 +248,14 @@ export function SignupForm() {
           phone={phone}
           baseCurrency={baseCurrency}
           enabledSections={enabledSections}
+          publicSignupEnabled={publicSignupEnabled}
           plans={plans}
           onGymNameChange={setGymName}
           onAddressChange={setAddress}
           onPhoneChange={setPhone}
           onBaseCurrencyChange={setBaseCurrency}
           onEnabledSectionsChange={setEnabledSections}
+          onPublicSignupEnabledChange={setPublicSignupEnabled}
           onPlansChange={setPlans}
         />
 

@@ -15,6 +15,7 @@ export type GymRow = {
   logo_url: string | null;
   base_currency: string;
   enabled_sections: string[] | null;
+  public_signup_enabled: boolean;
   created_at: string;
 };
 

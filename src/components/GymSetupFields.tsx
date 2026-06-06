@@ -51,12 +51,14 @@ type GymSetupFieldsProps = {
   phone: string;
   baseCurrency: string;
   enabledSections: string[];
+  publicSignupEnabled: boolean;
   plans: PlanDraft[];
   onGymNameChange: (value: string) => void;
   onAddressChange: (value: string) => void;
   onPhoneChange: (value: string) => void;
   onBaseCurrencyChange: (value: string) => void;
   onEnabledSectionsChange: (sections: string[]) => void;
+  onPublicSignupEnabledChange: (value: boolean) => void;
   onPlansChange: (plans: PlanDraft[]) => void;
 };
 
@@ -67,12 +69,14 @@ export function GymSetupFields({
   phone,
   baseCurrency,
   enabledSections,
+  publicSignupEnabled,
   plans,
   onGymNameChange,
   onAddressChange,
   onPhoneChange,
   onBaseCurrencyChange,
   onEnabledSectionsChange,
+  onPublicSignupEnabledChange,
   onPlansChange,
 }: GymSetupFieldsProps) {
   const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(locale, key);
@@ -127,6 +131,16 @@ export function GymSetupFields({
             />
           </div>
         </div>
+
+        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-glass-border bg-glass/40 px-3 py-2.5 text-sm font-bold text-foreground has-checked:border-primary/40 has-checked:bg-primary/5">
+          <input
+            type="checkbox"
+            checked={publicSignupEnabled}
+            onChange={(e) => onPublicSignupEnabledChange(e.target.checked)}
+            className="size-4 accent-primary"
+          />
+          {t("publicSignupLabel")}
+        </label>
       </fieldset>
 
       <fieldset className="space-y-3">

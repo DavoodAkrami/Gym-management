@@ -165,3 +165,66 @@ export async function fetchRevenueSeries(gymId: string, timeline: ChartTimeline,
     locale,
   );
 }
+
+export type OverviewStats = {
+  activeMembers: number;
+  expiringMembers: number;
+  expiredMembers: number;
+  totalRevenue: number;
+};
+
+export async function fetchOverviewStats(gymId: string, timeline: ChartTimeline): Promise<OverviewStats> {
+  const supabase = createSupabaseBrowserClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const threeDaysLater = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const { start: rangeStart } = getTimelineRange(timeline);
+  const rangeStartKey = toLocalDateKey(rangeStart);
+
+  const { count: activeCount, error: activeErr } = await supabase
+    .from("memberships")
+    .select("member_id", { count: "exact", head: true })
+    .eq("gym_id", gymId)
+    .eq("status", "active")
+    .gte("end_date", today);
+
+  if (activeErr) throw activeErr;
+
+  const { count: expiringCount, error: expiringErr } = await supabase
+    .from("memberships")
+    .select("member_id", { count: "exact", head: true })
+    .eq("gym_id", gymId)
+    .eq("status", "active")
+    .gte("end_date", today)
+    .lte("end_date", threeDaysLater);
+
+  if (expiringErr) throw expiringErr;
+
+  const { count: expiredCount, error: expiredErr } = await supabase
+    .from("memberships")
+    .select("member_id", { count: "exact", head: true })
+    .eq("gym_id", gymId)
+    .lt("end_date", today)
+    .gte("end_date", rangeStartKey);
+
+  if (expiredErr) throw expiredErr;
+
+  let totalRevenue = 0;
+  try {
+    const paymentRows = await fetchPaymentRows(gymId, rangeStart, new Date());
+    totalRevenue = paymentRows.reduce((sum, row) => sum + Number(row.amount), 0);
+  } catch {
+    try {
+      const membershipRows = await fetchMembershipRevenueRows(gymId, rangeStart, new Date());
+      totalRevenue = membershipRows.reduce((sum, row) => sum + Number(row.price), 0);
+    } catch {
+      totalRevenue = 0;
+    }
+  }
+
+  return {
+    activeMembers: activeCount ?? 0,
+    expiringMembers: expiringCount ?? 0,
+    expiredMembers: expiredCount ?? 0,
+    totalRevenue,
+  };
+}

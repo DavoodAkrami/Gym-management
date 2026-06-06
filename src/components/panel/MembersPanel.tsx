@@ -11,13 +11,9 @@ import { SelectBar } from "@/components/SelectBar";
 import type { SelectBarOption } from "@/components/SelectBar";
 import { getTranslation } from "@/lib/i18n/translations";
 import { formatDate } from "@/lib/date/format";
-import {
-  filterMembersByQuery,
-  filterMembersByType,
-  hasActiveMembership,
-} from "@/lib/members/filters";
-import { sortMembers, type MemberSort } from "@/lib/members/sort";
+import { hasActiveMembership } from "@/lib/members/filters";
 import type { MemberFilter, MemberFormValues, MemberWithMeta } from "@/lib/members/types";
+import type { MemberSort } from "@/lib/members/sort";
 import {
   createGymMember,
   deleteGymMember,
@@ -78,10 +74,11 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
   const loadInitial = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setMembers([]);
 
     try {
       const [result, lapsedList] = await Promise.all([
-        fetchMembersPage(gymId, PAGE_SIZE, 0),
+        fetchMembersPage(gymId, PAGE_SIZE, 0, { search, filter, sort }),
         fetchLapsedMembers(gymId),
       ]);
 
@@ -118,14 +115,18 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
     } finally {
       setLoading(false);
     }
-  }, [gymId, dispatch, locale]);
+  }, [gymId, dispatch, locale, search, filter, sort]);
+
+  useEffect(() => {
+    void loadInitial();
+  }, [loadInitial]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
 
     try {
-      const result = await fetchMembersPage(gymId, PAGE_SIZE, members.length);
+      const result = await fetchMembersPage(gymId, PAGE_SIZE, members.length, { search, filter, sort });
       setMembers((prev) => [...prev, ...result.members]);
       setTotalCount(result.total);
     } catch (caught) {
@@ -133,15 +134,11 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
     } finally {
       setLoadingMore(false);
     }
-  }, [gymId, members.length, loadingMore, hasMore, t]);
-
-  useEffect(() => {
-    void loadInitial();
-  }, [loadInitial]);
+  }, [gymId, members.length, loadingMore, hasMore, search, filter, sort, t]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
-    if (!sentinel) return;
+    if (!sentinel || !hasMore) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -161,16 +158,9 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
     return members.filter((member) => hasActiveMembership(member) || !lapsedIds.has(member.id));
   }, [members, lapsedMembers]);
 
-  const filteredMembers = useMemo(() => {
-    return sortMembers(
-      filterMembersByType(filterMembersByQuery(mainListMembers, search), filter),
-      sort,
-    );
-  }, [mainListMembers, search, filter, sort]);
-
   const sortedLapsed = useMemo(
-    () => sortMembers(filterMembersByQuery(lapsedMembers, search), sort),
-    [lapsedMembers, search, sort],
+    () => lapsedMembers, // lapsed members are already fetched and filtered; no sort needed here
+    [lapsedMembers],
   );
 
   const sortOptions: SelectBarOption<MemberSort>[] = useMemo(
@@ -363,22 +353,22 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
         <>
           <section className="space-y-3">
             <h2 className="text-sm font-black text-foreground">{t("memberActiveList")}</h2>
-            {filteredMembers.length === 0 ? (
+            {mainListMembers.length === 0 ? (
               <p className="text-sm font-bold text-muted-foreground">{t("memberEmpty")}</p>
             ) : (
               <>
-                {filteredMembers.map((member) => renderMemberRow(member))}
-                <div ref={sentinelRef} className="h-4" />
+                {mainListMembers.map((member) => renderMemberRow(member))}
+                {hasMore ? (
+                  <div ref={sentinelRef} className="flex justify-center py-4">
+                    {loadingMore ? <Spinner label={t("uiLoading")} /> : <div className="h-4" />}
+                  </div>
+                ) : members.length > 0 ? (
+                  <p className="text-center text-xs font-bold text-muted-foreground">
+                    {t("memberAllLoaded")}
+                  </p>
+                ) : null}
               </>
             )}
-            {loadingMore && members.length < totalCount ? (
-              <div className="flex justify-center py-4">
-                <Spinner label={t("uiLoading")} />
-              </div>
-            ) : null}
-            {!hasMore && members.length > 0 ? (
-              <p className="text-center text-xs font-bold text-muted-foreground">{t("memberAllLoaded")}</p>
-            ) : null}
           </section>
 
           <section className="space-y-3 border-t border-border pt-6">

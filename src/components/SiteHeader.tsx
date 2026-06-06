@@ -28,26 +28,39 @@ export function SiteHeader({ showNavLinks = true }: SiteHeaderProps) {
           </span>
         </Link>
 
-        <Link
-          href="/signup"
-          className="interactive-lift btn-primary inline-flex shrink-0 items-center gap-1.5 rounded-2xl px-4 py-2.5 text-sm font-black no-underline shadow-soft sm:hidden"
-        >
-          {t("navStart")}
-          <StartIcon aria-hidden="true" />
-        </Link>
+        <div className="flex items-center gap-2 sm:hidden">
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-1.5 rounded-2xl border border-border px-3 py-2.5 text-sm font-bold text-foreground no-underline"
+          >
+            {t("footerLogin")}
+          </Link>
+          <Link
+            href="/signup"
+            className="interactive-lift btn-primary inline-flex shrink-0 items-center gap-1.5 rounded-2xl px-4 py-2.5 text-sm font-black no-underline shadow-soft"
+          >
+            {t("navStart")}
+            <StartIcon aria-hidden="true" />
+          </Link>
+        </div>
       </div>
 
       {showNavLinks ? (
         <div className="hidden items-center gap-7 text-sm font-bold text-muted-foreground md:flex">
           <a href="/#features">{t("navFeatures")}</a>
-          <a href="/#signup">{t("navSignup")}</a>
-          <a href="/#data">{t("navData")}</a>
+          <Link href="/signup">{t("navSignup")}</Link>
           <Link href="/panel">{t("navPanel")}</Link>
         </div>
       ) : null}
 
       <div className="flex items-center justify-end gap-2 sm:gap-3">
         <PreferencesBar />
+        <Link
+          href="/login"
+          className="hidden items-center gap-2 rounded-2xl border border-border px-5 py-3 text-sm font-bold text-foreground no-underline hover:bg-surface sm:inline-flex"
+        >
+          {t("footerLogin")}
+        </Link>
         <Link
           href="/signup"
           className="interactive-lift btn-primary hidden items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black no-underline shadow-soft sm:inline-flex"

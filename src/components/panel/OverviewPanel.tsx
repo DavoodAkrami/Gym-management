@@ -16,7 +16,8 @@ import { TimelineSelector } from "@/components/panel/TimelineSelector";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { getTranslation } from "@/lib/i18n/translations";
 import type { ChartTimeline } from "@/lib/panel/timeline";
-import { fetchMemberSignupSeries, fetchRevenueSeries } from "@/lib/supabase/analytics";
+import { fetchMemberSignupSeries, fetchOverviewStats, fetchRevenueSeries } from "@/lib/supabase/analytics";
+import type { OverviewStats } from "@/lib/supabase/analytics";
 import type { Locale } from "@/lib/store/slices";
 
 type OverviewPanelProps = {
@@ -30,9 +31,11 @@ export function OverviewPanel({ gymId, locale }: OverviewPanelProps) {
   const [timeline, setTimeline] = useState<ChartTimeline>("30d");
   const [memberSeries, setMemberSeries] = useState<{ label: string; value: number }[]>([]);
   const [revenueSeries, setRevenueSeries] = useState<{ label: string; value: number }[]>([]);
+  const [stats, setStats] = useState<OverviewStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [memberError, setMemberError] = useState<string | null>(null);
   const [revenueError, setRevenueError] = useState<string | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!gymId) {
@@ -46,10 +49,12 @@ export function OverviewPanel({ gymId, locale }: OverviewPanelProps) {
       setLoading(true);
       setMemberError(null);
       setRevenueError(null);
+      setStatsError(null);
 
-      const [membersResult, revenueResult] = await Promise.allSettled([
+      const [membersResult, revenueResult, statsResult] = await Promise.allSettled([
         fetchMemberSignupSeries(gymId, timeline, locale),
         fetchRevenueSeries(gymId, timeline, locale),
+        fetchOverviewStats(gymId, timeline),
       ]);
 
       if (cancelled) {
@@ -78,6 +83,17 @@ export function OverviewPanel({ gymId, locale }: OverviewPanelProps) {
         );
       }
 
+      if (statsResult.status === "fulfilled") {
+        setStats(statsResult.value);
+      } else {
+        setStats(null);
+        setStatsError(
+          statsResult.reason instanceof Error
+            ? statsResult.reason.message
+            : getTranslation(locale, "authErrorGeneric"),
+        );
+      }
+
       setLoading(false);
     };
 
@@ -98,14 +114,44 @@ export function OverviewPanel({ gymId, locale }: OverviewPanelProps) {
         <TimelineSelector locale={locale} value={timeline} onChange={setTimeline} />
       </div>
 
+      {statsError ? (
+        <p className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-sm font-bold text-danger">
+          {statsError}
+        </p>
+      ) : null}
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <article className="rounded-2xl border border-glass-border bg-glass/50 p-4">
+          <p className="text-xs font-bold text-muted-foreground">{t("chartMembersTotal")}</p>
+          <p className="mt-1 text-2xl font-black text-foreground">
+            {loading ? "…" : totalMembers}
+          </p>
+        </article>
+        <article className="rounded-2xl border border-glass-border bg-glass/50 p-4">
+          <p className="text-xs font-bold text-muted-foreground">{t("overviewActiveMembers")}</p>
+          <p className="mt-1 text-2xl font-black text-foreground">
+            {loading ? "…" : stats?.activeMembers ?? "—"}
+          </p>
+        </article>
+        <article className="rounded-2xl border border-glass-border bg-glass/50 p-4">
+          <p className="text-xs font-bold text-muted-foreground">{t("overviewExpiringMembers")}</p>
+          <p className="mt-1 text-2xl font-black text-foreground">
+            {loading ? "…" : stats?.expiringMembers ?? "—"}
+          </p>
+        </article>
+        <article className="rounded-2xl border border-glass-border bg-glass/50 p-4">
+          <p className="text-xs font-bold text-muted-foreground">{t("overviewExpiredMembers")}</p>
+          <p className="mt-1 text-2xl font-black text-foreground">
+            {loading ? "…" : stats?.expiredMembers ?? "—"}
+          </p>
+        </article>
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-2">
         <article className="rounded-2xl border border-glass-border bg-glass/50 p-4 sm:p-5">
           <div className="mb-4 flex items-end justify-between gap-3">
             <div>
               <h2 className="text-lg font-black text-foreground">{t("chartMembersTitle")}</h2>
-              <p className="text-sm font-semibold text-muted-foreground">
-                {t("chartMembersTotal")}: {loading ? "…" : totalMembers}
-              </p>
             </div>
           </div>
           {memberError ? (

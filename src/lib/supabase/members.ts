@@ -1,4 +1,6 @@
-import type { MemberFormValues, MemberWithMeta } from "@/lib/members/types";
+import type { MemberFilter, MemberFormValues, MemberWithMeta } from "@/lib/members/types";
+import type { MemberSort } from "@/lib/members/sort";
+import { sortMembers } from "@/lib/members/sort";
 import type { Member, Membership } from "@/lib/store/slices";
 import { createSupabaseBrowserClient } from "./client";
 import type { MemberLapseRow, MemberRow, MembershipRow } from "./database.types";
@@ -64,45 +66,177 @@ export async function fetchMembersPage(
   gymId: string,
   limit: number,
   offset: number,
+  options?: {
+    search?: string;
+    filter?: MemberFilter;
+    sort?: MemberSort;
+  },
 ): Promise<{ members: MemberWithMeta[]; total: number }> {
   const supabase = createSupabaseBrowserClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const threeDaysLater = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  const { count, error: countError } = await supabase
+  const membershipSorts: MemberSort[] = ["end_asc", "end_desc", "days_left_asc", "days_left_desc"];
+  const needsMembershipOp =
+    options?.filter === "expiring" ||
+    (options?.sort && membershipSorts.includes(options.sort));
+
+  // ── Simple path: no membership dependency, direct DB pagination ──
+  if (!needsMembershipOp) {
+    let query = supabase
+      .from("members")
+      .select("*", { count: "exact" })
+      .eq("gym_id", gymId);
+
+    if (options?.search) {
+      query = query.or(
+        `first_name.ilike.%${options.search}%,last_name.ilike.%${options.search}%,phone.ilike.%${options.search}%,national_id.ilike.%${options.search}%`,
+      );
+    }
+
+    if (options?.filter === "new") {
+      query = query.gte("join_date", threeDaysAgo);
+    }
+
+    if (options?.sort) {
+      switch (options.sort) {
+        case "name_asc":
+          query = query.order("first_name", { ascending: true }).order("last_name", { ascending: true });
+          break;
+        case "name_desc":
+          query = query.order("first_name", { ascending: false }).order("last_name", { ascending: false });
+          break;
+        case "join_asc":
+          query = query.order("join_date", { ascending: true });
+          break;
+        default:
+          query = query.order("created_at", { ascending: false });
+          break;
+      }
+    } else {
+      query = query.order("created_at", { ascending: false });
+    }
+
+    const { data: memberRows, count, error } = await query.range(offset, offset + limit - 1);
+
+    if (error) throw error;
+    if (!memberRows || memberRows.length === 0) {
+      return { members: [], total: count ?? 0 };
+    }
+
+    const memberIds = memberRows.map((row) => row.id);
+
+    const { data: membershipRows } = await supabase
+      .from("memberships")
+      .select("*, gym_plans(name)")
+      .eq("gym_id", gymId)
+      .in("member_id", memberIds)
+      .order("end_date", { ascending: false });
+
+    const members = (memberRows as MemberRow[]).map(mapMember);
+    return {
+      members: attachMemberships(members, membershipRows as (MembershipRow & { gym_plans?: { name: string } | null })[]),
+      total: count ?? 0,
+    };
+  }
+
+  // ── Complex path: membership-dependent filter/sort ──
+  // Step 1: get base member IDs (search + "new" filter)
+  let baseIdQuery = supabase
     .from("members")
-    .select("*", { count: "exact", head: true })
+    .select("id")
     .eq("gym_id", gymId);
 
-  if (countError) throw countError;
+  if (options?.search) {
+    baseIdQuery = baseIdQuery.or(
+      `first_name.ilike.%${options.search}%,last_name.ilike.%${options.search}%,phone.ilike.%${options.search}%,national_id.ilike.%${options.search}%`,
+    );
+  }
 
-  const { data: memberRows, error: membersError } = await supabase
+  if (options?.filter === "new") {
+    baseIdQuery = baseIdQuery.gte("join_date", threeDaysAgo);
+  }
+
+  const { data: baseMemberRows } = await baseIdQuery;
+  const baseIds = new Set((baseMemberRows ?? []).map((r) => r.id));
+
+  // Step 2: get membership data for ordering / "expiring" filter
+  let membershipQuery = supabase
+    .from("memberships")
+    .select("member_id, end_date")
+    .eq("gym_id", gymId);
+
+  if (options?.filter === "expiring") {
+    membershipQuery = membershipQuery
+      .eq("status", "active")
+      .gte("end_date", today)
+      .lte("end_date", threeDaysLater);
+  }
+
+  const { data: membershipRows } = await membershipQuery.order("end_date", { ascending: false });
+
+  // Step 3: deduplicate (keep latest membership per member), intersect with baseIds
+  const seen = new Set<string>();
+  const ordered: { member_id: string; end_date: string }[] = [];
+
+  for (const m of membershipRows ?? []) {
+    if (!seen.has(m.member_id) && baseIds.has(m.member_id)) {
+      seen.add(m.member_id);
+      ordered.push(m);
+    }
+  }
+
+  // Step 4: sort by end_date / days_left (membership sorts only)
+  const membershipSortsList: MemberSort[] = ["end_asc", "end_desc", "days_left_asc", "days_left_desc"];
+  if (options?.sort && membershipSortsList.includes(options.sort)) {
+    const asc = options.sort === "end_asc" || options.sort === "days_left_asc";
+    ordered.sort((a, b) =>
+      asc ? a.end_date.localeCompare(b.end_date) : b.end_date.localeCompare(a.end_date),
+    );
+  }
+
+  // Step 5: paginate
+  const total = ordered.length;
+  const pageItems = ordered.slice(offset, offset + limit);
+  if (pageItems.length === 0) {
+    return { members: [], total };
+  }
+
+  const pageIds = pageItems.map((m) => m.member_id);
+
+  // Step 6: fetch member rows for this page
+  const { data: memberRows, error: memberError } = await supabase
     .from("members")
     .select("*")
     .eq("gym_id", gymId)
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .in("id", pageIds);
 
-  if (membersError) throw membersError;
+  if (memberError) throw memberError;
 
-  if (!memberRows || memberRows.length === 0) {
-    return { members: [], total: count ?? 0 };
-  }
+  // Reorder to match pageIds
+  const memberMap = new Map((memberRows ?? []).map((r) => [r.id, r]));
+  const orderedMembers = pageIds.map((id) => memberMap.get(id)).filter(Boolean) as MemberRow[];
 
-  const memberIds = memberRows.map((row) => row.id);
-
-  const { data: membershipRows, error: membershipsError } = await supabase
+  // Step 7: attach memberships
+  const { data: membershipRowsFull } = await supabase
     .from("memberships")
     .select("*, gym_plans(name)")
     .eq("gym_id", gymId)
-    .in("member_id", memberIds)
+    .in("member_id", pageIds)
     .order("end_date", { ascending: false });
 
-  if (membershipsError) throw membershipsError;
+  let result: MemberWithMeta[] = attachMemberships(
+    orderedMembers.map(mapMember),
+    membershipRowsFull as (MembershipRow & { gym_plans?: { name: string } | null })[],
+  );
 
-  const members = (memberRows as MemberRow[]).map(mapMember);
-  return {
-    members: attachMemberships(members, membershipRows as (MembershipRow & { gym_plans?: { name: string } | null })[]),
-    total: count ?? 0,
-  };
+  // Apply non-membership sort in memory (name / join_date)
+  if (options?.sort && !membershipSortsList.includes(options.sort)) {
+    result = sortMembers(result, options.sort);
+  }
+
+  return { members: result, total };
 }
 
 export async function fetchGymMembers(gymId: string) {

@@ -21,6 +21,7 @@ export type GymOnboardingInput = {
   phone: string;
   baseCurrency: string;
   enabledSections: string[];
+  publicSignupEnabled: boolean;
   plans: {
     name: string;
     price: number;
@@ -39,6 +40,7 @@ function mapGym(row: GymRow): Gym {
     logo_url: row.logo_url ?? undefined,
     base_currency: row.base_currency,
     enabled_sections: row.enabled_sections ?? undefined,
+    public_signup_enabled: row.public_signup_enabled,
   };
 }
 
@@ -175,6 +177,7 @@ export async function createGymWithPlans(ownerId: string, input: GymOnboardingIn
     p_base_currency: input.baseCurrency.trim() || "IRT",
     p_plans: plansPayload,
     p_enabled_sections: input.enabledSections,
+    p_public_signup_enabled: input.publicSignupEnabled,
   });
 
   if (!rpcError && rpcData) {
@@ -200,6 +203,7 @@ export async function createGymWithPlans(ownerId: string, input: GymOnboardingIn
       phone: input.phone.trim(),
       base_currency: input.baseCurrency.trim() || "IRT",
       enabled_sections: input.enabledSections,
+      public_signup_enabled: input.publicSignupEnabled,
     })
     .select("*")
     .single();

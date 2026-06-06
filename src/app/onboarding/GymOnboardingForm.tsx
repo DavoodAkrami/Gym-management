@@ -40,6 +40,7 @@ export function GymOnboardingForm() {
   const [phone, setPhone] = useState("");
   const [baseCurrency, setBaseCurrency] = useState("IRT");
   const [enabledSections, setEnabledSections] = useState<string[]>(DEFAULT_ENABLED_SECTIONS);
+  const [publicSignupEnabled, setPublicSignupEnabled] = useState(false);
   const [plans, setPlans] = useState<PlanDraft[]>([
     createPlanDraft({ name: locale === "fa" ? "ماهانه" : "Monthly", price: "49", durationDays: "30" }),
     createPlanDraft({ name: locale === "fa" ? "سالانه" : "Yearly", price: "499", durationDays: "365" }),
@@ -83,6 +84,7 @@ export function GymOnboardingForm() {
         phone,
         baseCurrency,
         enabledSections,
+        publicSignupEnabled,
         plans: parsedPlans,
       });
       router.push(`/panel/${slug}`);

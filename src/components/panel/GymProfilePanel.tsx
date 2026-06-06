@@ -69,6 +69,7 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
     name: "",
     address: "",
     phone: "",
+    public_signup_enabled: false,
   });
   const [enabledSections, setEnabledSections] = useState<string[]>(DEFAULT_ENABLED_SECTIONS);
   const [savingSections, setSavingSections] = useState(false);
@@ -76,13 +77,14 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
   const [planModal, setPlanModal] = useState<PlanModalState>({ type: "none" });
   const [planForm, setPlanForm] = useState<GymPlanInput>(emptyPlanForm());
 
-  const gymInitialRef = useRef<GymProfileInput>({ name: "", address: "", phone: "" });
+  const gymInitialRef = useRef<GymProfileInput>({ name: "", address: "", phone: "", public_signup_enabled: false });
   const ownerInitialRef = useRef({ name: authUser?.full_name ?? "", avatar: "" });
 
   const gymDirty =
     gymForm.name !== gymInitialRef.current.name ||
     gymForm.address !== gymInitialRef.current.address ||
-    gymForm.phone !== gymInitialRef.current.phone;
+    gymForm.phone !== gymInitialRef.current.phone ||
+    gymForm.public_signup_enabled !== gymInitialRef.current.public_signup_enabled;
 
   const ownerDirty =
     ownerName !== ownerInitialRef.current.name || ownerAvatar !== ownerInitialRef.current.avatar;
@@ -99,6 +101,7 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
         name: gym.name,
         address: gym.address,
         phone: gym.phone,
+        public_signup_enabled: gym.public_signup_enabled ?? false,
       };
       setGymForm(form);
       gymInitialRef.current = form;
@@ -131,6 +134,7 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
           name: gymForm.name,
           address: gymForm.address,
           phone: gymForm.phone,
+          public_signup_enabled: gymForm.public_signup_enabled,
         });
         dispatch(gymsActions.upsertGym(gym));
         gymInitialRef.current = { ...gymForm };
@@ -323,6 +327,19 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
             />
           </label>
         </div>
+
+        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-glass-border bg-glass/40 px-3 py-2.5 text-sm font-bold text-foreground has-checked:border-primary/40 has-checked:bg-primary/5">
+          <input
+            type="checkbox"
+            checked={gymForm.public_signup_enabled === true}
+            onChange={(e) => setGymForm((v) => ({ ...v, public_signup_enabled: e.target.checked }))}
+            className="size-4 accent-primary"
+          />
+          <span className="flex flex-col">
+            <span>{t("publicSignupProfileLabel")}</span>
+            <span className="text-xs font-medium text-muted-foreground">{t("publicSignupProfileDesc")}</span>
+          </span>
+        </label>
 
         <div className="flex justify-end">
           <button

@@ -15,6 +15,7 @@ export type Gym = {
   logo_url?: string;
   base_currency: string;
   enabled_sections?: string[];
+  public_signup_enabled?: boolean;
 };
 
 export type GymPlan = {

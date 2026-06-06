@@ -7,6 +7,7 @@ export type GymProfileInput = {
   name: string;
   address: string;
   phone: string;
+  public_signup_enabled?: boolean;
 };
 
 export type GymPlanInput = {
@@ -26,6 +27,7 @@ function mapGym(row: GymRow): Gym {
     logo_url: row.logo_url ?? undefined,
     base_currency: row.base_currency,
     enabled_sections: row.enabled_sections ?? undefined,
+    public_signup_enabled: row.public_signup_enabled,
   };
 }
 
@@ -81,6 +83,10 @@ export async function updateGymProfile(gymId: string, input: GymProfileInput) {
     phone: input.phone.trim(),
     base_currency: "IRT",
   };
+
+  if (input.public_signup_enabled !== undefined) {
+    updateData.public_signup_enabled = input.public_signup_enabled;
+  }
 
   const { data, error } = await supabase
     .from("gyms")

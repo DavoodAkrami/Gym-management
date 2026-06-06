@@ -60,6 +60,78 @@ export async function fetchSignupContext(token: string): Promise<SignupContext> 
   };
 }
 
+export type PublicGymInfo = {
+  id: string;
+  name: string;
+  slug: string;
+  address: string;
+  phone: string;
+  logo_url: string | null;
+};
+
+export type GymSearchResult = {
+  data: PublicGymInfo[];
+  total: number;
+};
+
+export async function searchPublicGyms(
+  query: string,
+  offset: number = 0,
+  limit: number = 10,
+): Promise<GymSearchResult> {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("search_public_gyms", {
+    p_query: query,
+    p_offset: offset,
+    p_limit: limit,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const payload = data as { data: PublicGymInfo[]; total: number };
+
+  return {
+    data: payload.data ?? [],
+    total: payload.total ?? 0,
+  };
+}
+
+export type PublicGymDetail = {
+  gym: PublicGymInfo & { base_currency: string; public_signup_enabled: boolean };
+  plans: SignupContextPlan[];
+  signup_token: string | null;
+};
+
+export async function fetchPublicGym(slug: string): Promise<PublicGymDetail | null> {
+  const supabase = createSupabaseBrowserClient();
+
+  const { data, error } = await supabase.rpc("get_public_gym", {
+    p_slug: slug,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const payload = data as { gym: PublicGymDetail["gym"]; plans: SignupContextPlan[]; signup_token: string | null };
+
+  return {
+    gym: payload.gym,
+    plans: (payload.plans ?? []).map((plan) => ({
+      ...plan,
+      price: Number(plan.price),
+    })),
+    signup_token: payload.signup_token ?? null,
+  };
+}
+
 export async function registerMemberViaSignupLink(input: MemberRegistrationInput) {
   const supabase = createSupabaseBrowserClient();
 
