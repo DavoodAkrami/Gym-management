@@ -24,19 +24,23 @@ export function PanelSkeleton() {
           </div>
         </aside>
 
-        <main className="panel-main-card surface-panel p-5 sm:p-7">
-          <div className="panel-main-header mb-6 flex gap-4 border-b border-border pb-5">
-            <Skeleton className="size-12 shrink-0" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-8 w-48" />
-              <Skeleton className="h-4 w-full max-w-md" />
+        <main className="panel-main-card surface-panel flex min-h-0 flex-1 flex-col">
+          <div className="panel-main-header border-b border-border p-5 sm:p-7 sm:pb-5">
+            <div className="flex items-start gap-4">
+              <Skeleton className="size-11 shrink-0 rounded-lg" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-8 w-48" />
+                <Skeleton className="h-4 w-full max-w-md" />
+              </div>
             </div>
           </div>
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-full max-w-md" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
+          <div className="flex-1 p-5 sm:p-7">
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full max-w-md" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
           </div>
         </main>
       </div>

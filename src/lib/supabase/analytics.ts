@@ -228,3 +228,101 @@ export async function fetchOverviewStats(gymId: string, timeline: ChartTimeline)
     totalRevenue,
   };
 }
+
+export type ExpiringMember = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  plan_name: string;
+  end_date: string;
+  days_left: number;
+};
+
+export async function fetchExpiringMembers(gymId: string): Promise<ExpiringMember[]> {
+  const supabase = createSupabaseBrowserClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const threeDaysLater = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("member_id, end_date, gym_plans!inner(name), members!inner(id, first_name, last_name, phone)")
+    .eq("gym_id", gymId)
+    .eq("status", "active")
+    .gte("end_date", today)
+    .lte("end_date", threeDaysLater);
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => {
+    const member = Array.isArray(row.members) ? row.members[0] : row.members;
+    const plan = Array.isArray(row.gym_plans) ? row.gym_plans[0] : row.gym_plans;
+    return {
+      id: member.id,
+      first_name: member.first_name,
+      last_name: member.last_name,
+      phone: member.phone,
+      plan_name: plan.name,
+      end_date: row.end_date,
+      days_left: Math.ceil(
+        (new Date(row.end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+      ),
+    };
+  });
+}
+
+export type OverviewMemberRow = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  plan_name: string;
+  end_date: string;
+  status: string;
+};
+
+export async function fetchOverviewMembersPaginated(
+  gymId: string,
+  filter: "active" | "expired" | "expiring",
+  offset: number,
+  limit: number,
+): Promise<{ rows: OverviewMemberRow[]; total: number }> {
+  const supabase = createSupabaseBrowserClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const threeDaysLater = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const query = supabase
+    .from("memberships")
+    .select("member_id, end_date, status, gym_plans!inner(name), members!inner(id, first_name, last_name, phone)", { count: "exact" })
+    .eq("gym_id", gymId);
+
+  if (filter === "expiring") {
+    query.eq("status", "active");
+    query.gte("end_date", today);
+    query.lte("end_date", threeDaysLater);
+  } else {
+    query.eq("status", filter);
+  }
+
+  query.order("end_date", { ascending: false });
+  query.range(offset, offset + limit - 1);
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+
+  const rows = (data ?? []).map((row) => {
+    const member = Array.isArray(row.members) ? row.members[0] : row.members;
+    const plan = Array.isArray(row.gym_plans) ? row.gym_plans[0] : row.gym_plans;
+    return {
+      id: member.id,
+      first_name: member.first_name,
+      last_name: member.last_name,
+      phone: member.phone,
+      plan_name: plan.name,
+      end_date: row.end_date,
+      status: row.status,
+    };
+  });
+
+  return { rows, total: count ?? 0 };
+}

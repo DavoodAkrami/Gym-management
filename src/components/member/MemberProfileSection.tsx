@@ -10,6 +10,8 @@ import {
   updateMemberSelfProfile,
   type MemberPortalData,
 } from "@/lib/supabase/member-portal";
+import { PhoneInput } from "@/components/ui/PhoneInput";
+import { displayPhone } from "@/lib/phone";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authActions } from "@/lib/store/slices";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
@@ -111,7 +113,7 @@ export function MemberProfileSection({ portal, locale, onUpdated }: MemberProfil
             </label>
             <label className="block sm:col-span-2">
               <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberPhone")}</span>
-              <input required value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3" />
+              <PhoneInput required value={phone} onChange={setPhone} />
             </label>
           </div>
           {error ? <p className="panel-alert border-danger/30 bg-danger/10 text-danger">{error}</p> : null}
@@ -119,7 +121,7 @@ export function MemberProfileSection({ portal, locale, onUpdated }: MemberProfil
             <button type="button" className="rounded-xl border border-glass-border px-4 py-2 text-sm font-bold" onClick={() => setEditing(false)}>
               {t("memberModalCancel")}
             </button>
-            <button type="submit" disabled={saving} className="btn-primary rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70">
+            <button type="submit" disabled={saving} className="btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70">
               {saving ? <Spinner label={t("uiSaving")} /> : t("memberModalSave")}
             </button>
           </div>
@@ -139,7 +141,7 @@ export function MemberProfileSection({ portal, locale, onUpdated }: MemberProfil
             </div>
             <div>
               <dt className="font-bold text-muted-foreground">{t("memberPhone")}</dt>
-              <dd className="font-black">{portal.member.phone}</dd>
+              <dd className="font-black">{displayPhone(portal.member.phone)}</dd>
             </div>
           </dl>
         </div>

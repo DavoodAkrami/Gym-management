@@ -10,6 +10,7 @@ import {
   FiMapPin,
   FiPhone,
   FiSearch,
+  FiX,
 } from "react-icons/fi";
 import { getTranslation } from "@/lib/i18n/translations";
 import { searchPublicGyms } from "@/lib/supabase/public-signup";
@@ -18,6 +19,45 @@ import { useAppSelector } from "@/lib/store/hooks";
 import { PreferencesBar } from "@/components/PreferencesBar";
 
 const PAGE_SIZE = 10;
+
+function SkeletonCard() {
+  return (
+    <div className="gyms-skeleton" style={{ padding: "1.5rem" }}>
+      <div className="gyms-skeleton-shimmer" style={{ position: "absolute", inset: 0 }} />
+      <div className="flex items-center gap-4">
+        <div style={{
+          width: "2.75rem",
+          height: "2.75rem",
+          borderRadius: "var(--radius-glass-sm)",
+          background: "var(--surface-muted)",
+          flexShrink: 0,
+        }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            height: "1rem",
+            width: "60%",
+            borderRadius: "999px",
+            background: "var(--surface-muted)",
+          }} />
+          <div style={{
+            height: "0.8rem",
+            width: "40%",
+            marginTop: "0.5rem",
+            borderRadius: "999px",
+            background: "var(--surface-muted)",
+          }} />
+        </div>
+      </div>
+      <div style={{
+        height: "0.8rem",
+        width: "70%",
+        marginTop: "1rem",
+        borderRadius: "999px",
+        background: "var(--surface-muted)",
+      }} />
+    </div>
+  );
+}
 
 export default function GymsPage() {
   const locale = useAppSelector((state) => state.ui.locale);
@@ -29,7 +69,6 @@ export default function GymsPage() {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,9 +84,8 @@ export default function GymsPage() {
       }
       setTotal(result.total);
       setOffset(off + result.data.length);
-    } catch (e) {
+    } catch {
       setError(true);
-      setErrorMessage(e instanceof Error ? e.message : "Unknown error");
       if (!append) setGyms([]);
     } finally {
       setLoading(false);
@@ -70,10 +108,12 @@ export default function GymsPage() {
   }, [fetchPage]);
 
   const hasMore = offset < total;
+  const EndIcon = locale === "fa" ? FiArrowLeft : FiArrowRight;
 
   return (
-    <main className="min-h-screen px-5 py-5 text-foreground sm:px-8 lg:px-10">
+    <main className="gyms-section min-h-screen px-5 py-5 text-foreground sm:px-8 lg:px-10">
       <div className="mx-auto flex w-full max-w-6xl flex-col">
+        {/* Header */}
         <div className="surface-panel flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
           <div className="flex items-center gap-3">
             <Link
@@ -90,85 +130,188 @@ export default function GymsPage() {
           </div>
         </div>
 
-        <div className="py-10 text-center sm:py-14">
-          <h1 className="text-3xl font-black sm:text-4xl">{t("gymsPageTitle")}</h1>
-          <p className="mx-auto mt-4 max-w-lg text-base font-medium leading-7 text-muted-foreground">
+        {/* Hero */}
+        <section className="gyms-hero py-14 sm:py-18">
+          <div className="gyms-fade-in">
+            <span className="gyms-eyebrow">{locale === "fa" ? "فهرست باشگاه‌ها" : "GYM DIRECTORY"}</span>
+          </div>
+          <div className="gyms-fade-in" style={{ marginTop: "0.75rem" }}>
+            <div className="gyms-accent" />
+          </div>
+          <h1 className="gyms-fade-in gyms-title" style={{
+            fontSize: "clamp(2.5rem, 8vw, 4.5rem)",
+            marginTop: "1.25rem",
+            maxWidth: "7em",
+          }}>
+            {t("gymsPageTitle")}
+          </h1>
+          <p className="gyms-fade-in gyms-sub" style={{
+            marginTop: "1rem",
+            fontSize: "1.05rem",
+          }}>
             {t("gymsPageDesc")}
           </p>
+        </section>
+
+        {/* Search */}
+        <div className="gyms-fade-in gyms-search" style={{ marginBottom: "2.5rem" }}>
+          <div style={{ position: "relative", maxWidth: "36rem" }}>
+            <FiSearch
+              className="pointer-events-none absolute"
+              style={{
+                insetInlineStart: "1.25rem",
+                top: "50%",
+                transform: "translateY(-50%)",
+                fontSize: "1.2rem",
+                color: "var(--muted-foreground)",
+              }}
+              aria-hidden="true"
+            />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("discoverSearchPlaceholder")}
+              style={{
+                width: "100%",
+                padding: "1rem 1.25rem 1rem 3.25rem",
+                fontSize: "1rem",
+                fontWeight: 700,
+                borderRadius: "var(--radius-glass-xl)",
+                border: "1px solid var(--border)",
+                background: "var(--glass)",
+                color: "var(--foreground)",
+                outline: "none",
+                backdropFilter: "blur(var(--blur-glass))",
+                boxShadow: "var(--shadow-glass-soft)",
+              }}
+              dir={locale === "fa" ? "rtl" : "ltr"}
+              onKeyDown={(e) => {
+                if (query && e.key === "Escape") {
+                  setQuery("");
+                  searchInputRef.current?.blur();
+                }
+              }}
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                style={{
+                  position: "absolute",
+                  insetInlineEnd: "0.75rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "2rem",
+                  height: "2rem",
+                  borderRadius: "999px",
+                  border: "none",
+                  background: "var(--surface-muted)",
+                  color: "var(--muted-foreground)",
+                  cursor: "pointer",
+                }}
+                aria-label="Clear search"
+              >
+                <FiX aria-hidden="true" />
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="relative mx-auto mb-10 w-full max-w-md">
-          <FiSearch
-            className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-lg text-muted-foreground"
-            aria-hidden="true"
-          />
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("discoverSearchPlaceholder")}
-            className="w-full rounded-2xl border border-border bg-surface py-3.5 pl-12 pr-5 text-sm font-semibold text-foreground outline-none placeholder:text-placeholder focus:border-input-focus-border"
-            dir={locale === "fa" ? "rtl" : "ltr"}
-          />
-        </div>
-
-        {loading && gyms.length === 0 ? (
-          <div className="flex justify-center py-16">
-            <div className="size-8 animate-spin rounded-full border-4 border-border border-t-primary" />
+        {/* Loading (first fetch) */}
+        {loading && gyms.length === 0 && !error ? (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="gyms-card-stagger" style={{ position: "relative" }}>
+                <SkeletonCard />
+              </div>
+            ))}
           </div>
         ) : error && gyms.length === 0 && query.length > 0 ? (
-          <p className="py-16 text-center text-sm font-semibold text-muted-foreground">
-            {t("discoverNoResults")}
-          </p>
+          <div className="flex flex-col items-center gap-4 py-16 text-center">
+            <p className="text-sm font-semibold text-muted-foreground">
+              {t("discoverNoResults")}
+            </p>
+          </div>
         ) : error && gyms.length === 0 ? (
-          <div className="py-16 text-center">
+          <div className="flex flex-col items-center gap-4 py-16 text-center">
+            <div className="gyms-accent" style={{ margin: "0 auto" }} />
+            <h2 className="text-lg font-black">
+              {locale === "fa" ? "خطا در بارگذاری" : "Could not load gyms"}
+            </h2>
             <p className="text-sm font-semibold text-muted-foreground">
               {locale === "fa"
-                ? "امکان بارگذاری باشگاه‌ها وجود ندارد. لطفاً مطمئن شوید که تابع search_public_gyms در Supabase ایجاد شده است."
-                : "Could not load gyms. Make sure the search_public_gyms function exists in your Supabase instance."}
+                ? "مشکلی پیش آمده است. لطفاً دوباره تلاش کنید."
+                : "Something went wrong. Please try again."}
             </p>
-            <p className="mt-2 text-xs text-muted-foreground/60">{errorMessage}</p>
+            <button
+              type="button"
+              onClick={() => fetchPage(query, 0, false)}
+              className="btn-primary inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-black no-underline shadow-soft"
+            >
+              {locale === "fa" ? "تلاش دوباره" : "Try again"}
+            </button>
           </div>
         ) : gyms.length === 0 ? (
-          <p className="py-16 text-center text-sm font-semibold text-muted-foreground">
-            {locale === "fa"
-              ? "هنوز باشگاهی ثبت نشده است."
-              : "No gyms registered yet."}
-          </p>
+          <div className="flex flex-col items-center gap-4 py-16 text-center">
+            <div className="gyms-accent" style={{ margin: "0 auto" }} />
+            <h2 className="text-lg font-black">
+              {locale === "fa" ? "هنوز باشگاهی ثبت نشده" : "No gyms registered yet"}
+            </h2>
+            <p className="text-sm font-semibold text-muted-foreground max-w-md">
+              {locale === "fa"
+                ? "هنوز هیچ باشگاهی در پلتفرم ثبت نکرده است. اولین نفری باشید که باشگاه خود را اضافه می‌کند."
+                : "No gyms have registered on the platform yet. Be the first to add yours."}
+            </p>
+            <Link
+              href="/signup"
+              className="btn-primary inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-black no-underline shadow-soft"
+            >
+              {t("navStart")}
+              <EndIcon aria-hidden="true" />
+            </Link>
+          </div>
         ) : (
           <>
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {gyms.map((gym) => (
+            {/* Gym Cards */}
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {gyms.map((gym, i) => (
                 <Link
                   key={gym.id}
                   href={`/gyms/${gym.slug}`}
-                  className="group rounded-2xl border border-border p-5 no-underline transition-colors hover:border-interactive-border"
+                  className="gyms-card gyms-card-stagger"
                 >
+                  {/* Bib number */}
+                  <div className="gyms-card-bib" style={{ marginBottom: "0.75rem" }}>
+                    {String(offset + i + 1).padStart(2, "0")}
+                  </div>
+
                   <div className="flex items-center gap-4">
-                    <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-lg font-black text-on-primary">
+                    <div className="gyms-card-badge">
                       {gym.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="truncate text-base font-black text-foreground">
-                        {gym.name}
-                      </h3>
-                      <p className="truncate text-sm font-medium text-muted-foreground">
+                      <h3 className="gyms-card-name truncate">{gym.name}</h3>
+                      <p className="truncate text-sm font-semibold text-muted-foreground" style={{ marginTop: "0.15rem" }}>
                         {gym.address || "—"}
                       </p>
                     </div>
                     {locale === "fa" ? (
-                      <FiChevronLeft className="shrink-0 text-muted-foreground transition-transform group-hover:-translate-x-0.5" aria-hidden="true" />
+                      <FiChevronLeft className="gyms-card-arrow" aria-hidden="true" />
                     ) : (
-                      <FiChevronRight className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                      <FiChevronRight className="gyms-card-arrow" aria-hidden="true" />
                     )}
                   </div>
 
-                  <div className="mt-4 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                  <div className="gyms-card-detail" style={{ marginTop: "1rem" }}>
                     <FiMapPin className="shrink-0" aria-hidden="true" />
                     <span className="truncate">{gym.address || "—"}</span>
                   </div>
-                  <div className="mt-1.5 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                  <div className="gyms-card-detail" style={{ marginTop: "0.45rem" }}>
                     <FiPhone className="shrink-0" aria-hidden="true" />
                     <span dir="ltr">{gym.phone || "—"}</span>
                   </div>
@@ -176,13 +319,14 @@ export default function GymsPage() {
               ))}
             </div>
 
-            <div className="mt-8 flex flex-col items-center gap-4">
+            {/* Load more */}
+            <div className="mt-10 flex flex-col items-center gap-4">
               {hasMore && (
                 <button
                   type="button"
                   onClick={() => fetchPage(query, offset, true)}
                   disabled={loading}
-                  className="btn-primary inline-flex items-center gap-2 rounded-2xl px-8 py-3 text-sm font-black shadow-soft disabled:opacity-50"
+                  className="btn-primary inline-flex items-center gap-2 rounded-2xl px-10 py-4 text-sm font-black shadow-soft disabled:opacity-50"
                 >
                   {loading ? (
                     <>

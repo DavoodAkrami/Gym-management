@@ -4,17 +4,23 @@ import { useState } from "react";
 import {
   FiCalendar,
   FiClock,
+  FiLogOut,
   FiMapPin,
   FiPhone,
   FiUser,
   FiUserCheck,
   FiBookOpen,
 } from "react-icons/fi";
+import { Modal } from "@/components/Modal";
 import { MemberCoachSection } from "@/components/member/MemberCoachSection";
 import { MemberProfileSection } from "@/components/member/MemberProfileSection";
 import { MemberProgramsSection } from "@/components/member/MemberProgramsSection";
+import { Spinner } from "@/components/ui/Spinner";
 import { getTranslation } from "@/lib/i18n/translations";
 import { formatDate } from "@/lib/date/format";
+import { displayPhone } from "@/lib/phone";
+import { leaveGym } from "@/lib/supabase/member-portal";
+import { showToast } from "@/lib/toast/client";
 import {
   formatMemberStatus,
   membershipProgressPercent,
@@ -31,10 +37,55 @@ type MemberDashboardProps = {
 
 type MemberTab = "home" | "coach" | "programs" | "profile";
 
+function ProgressRing({
+  percent,
+  size = 48,
+  strokeWidth = 4,
+  status,
+}: {
+  percent: number;
+  size?: number;
+  strokeWidth?: number;
+  status?: "active" | "warning" | "expired";
+}) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percent / 100) * circumference;
+  const fgClass =
+    status === "expired"
+      ? "progress-ring-fg-expired"
+      : status === "warning"
+        ? "progress-ring-fg-warning"
+        : "progress-ring-fg-success";
+
+  return (
+    <svg width={size} height={size} className="progress-ring-svg">
+      <circle
+        className="progress-ring-bg"
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        strokeWidth={strokeWidth}
+      />
+      <circle
+        className={`progress-ring-fg ${fgClass}`}
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        strokeWidth={strokeWidth}
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+      />
+    </svg>
+  );
+}
+
 export function MemberDashboard({ portal, loading, error, onRetry }: MemberDashboardProps) {
   const locale = useAppSelector((state) => state.ui.locale);
   const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(locale, key);
   const [tab, setTab] = useState<MemberTab>("home");
+  const [leaveConfirm, setLeaveConfirm] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   if (error) {
     return (
@@ -49,11 +100,12 @@ export function MemberDashboard({ portal, loading, error, onRetry }: MemberDashb
 
   if (!portal) {
     return (
-      <div className="panel-card p-8 text-center">
-        <h1 className="text-xl font-black text-foreground">{t("memberPortalEmptyTitle")}</h1>
-        <p className="mt-3 text-sm font-medium leading-7 text-muted-foreground">
-          {t("memberPortalEmptyDesc")}
-        </p>
+      <div className="panel-empty-state">
+        <div className="panel-empty-icon">
+          <FiUser aria-hidden="true" />
+        </div>
+        <p className="panel-empty-title">{t("memberPortalEmptyTitle")}</p>
+        <p className="panel-empty-desc">{t("memberPortalEmptyDesc")}</p>
       </div>
     );
   }
@@ -80,6 +132,8 @@ export function MemberDashboard({ portal, loading, error, onRetry }: MemberDashb
     ? formatMemberStatus(membership.status, statusLabels)
     : t("memberNoPlan");
 
+  const ringStatus = isExpired ? "expired" : isExpiringSoon ? "warning" : "active";
+
   const tabs: { id: MemberTab; label: string; icon: React.ReactNode }[] = [
     { id: "home", label: t("memberTabHome"), icon: <FiCalendar aria-hidden="true" /> },
     { id: "coach", label: t("memberTabCoach"), icon: <FiUserCheck aria-hidden="true" /> },
@@ -99,131 +153,184 @@ export function MemberDashboard({ portal, loading, error, onRetry }: MemberDashb
         <p className="mt-2 text-sm font-medium text-muted-foreground">{t("memberPortalSubtitle")}</p>
       </div>
 
-      <nav className="flex flex-wrap gap-2 border-b border-border pb-3">
+      <div className="passport-tabs">
         {tabs.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => setTab(item.id)}
-            className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold ${
-              tab === item.id ? "bg-glass-strong text-foreground" : "text-muted-foreground"
-            }`}
+            className={`passport-tab ${tab === item.id ? "passport-tab-active" : ""}`}
           >
             {item.icon}
             {item.label}
           </button>
         ))}
-      </nav>
+      </div>
 
-      {tab === "home" ? (
-        <>
-          {membership ? (
-            <article className="panel-card overflow-hidden p-0">
-              <div
-                className={`px-5 py-4 ${
-                  isExpired ? "bg-danger/15" : isExpiringSoon ? "bg-warning/15" : "bg-glass-strong"
-                }`}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-eyebrow">{t("memberPortalPlanTitle")}</p>
-                    <p className="mt-1 text-xl font-black text-foreground">{membership.plan_name}</p>
-                  </div>
-                  <span
-                    className={`member-status-badge ${
-                      isExpired
-                        ? "member-status-expired"
-                        : isExpiringSoon
-                          ? "member-status-warning"
-                          : "member-status-active"
-                    }`}
-                  >
+      <div className="passport-page">
+        {tab === "home" ? (
+          <div className="space-y-5">
+            {membership ? (
+              <article className="member-wallet-card">
+                <p className="member-wallet-brand">{t("memberPortalPlanTitle")}</p>
+                <p className="member-wallet-name">
+                  {portal.member.first_name} {portal.member.last_name}
+                </p>
+                <p className="member-wallet-plan">{membership.plan_name}</p>
+                <div className="flex items-center justify-between gap-3 mt-3">
+                  <span className={`member-wallet-status ${isExpired || isExpiringSoon ? "" : ""}`}>
+                    <span className="member-wallet-status-dot" />
                     {isExpired ? t("memberPortalExpired") : planStatusLabel}
                   </span>
+                  <ProgressRing percent={progress} size={40} strokeWidth={3} status={ringStatus} />
+                </div>
+                <div className="member-wallet-footer">
+                  <div>
+                    <p className="member-wallet-footer-label">{t("memberPortalDaysLeft")}</p>
+                    <p className="member-wallet-footer-value">
+                      {isExpired ? t("memberPortalExpired") : daysLeft}
+                    </p>
+                  </div>
+                  <div className="text-end">
+                    <p className="member-wallet-footer-label">{t("memberPortalEnds")}</p>
+                    <p className="member-wallet-footer-value">
+                      {formatDate(membership.end_date, locale)}
+                    </p>
+                  </div>
+                </div>
+              </article>
+            ) : (
+              <article className="panel-card p-6 text-center">
+                <p className="text-sm font-bold text-muted-foreground">{t("memberNoPlan")}</p>
+              </article>
+            )}
+
+            {membership ? (
+              <div className="member-timeline">
+                <div className="member-timeline-item">
+                  <div className="member-timeline-dot">
+                    <FiUser aria-hidden="true" style={{ fontSize: "0.5rem" }} />
+                  </div>
+                  <div className="member-timeline-content">
+                    <p className="member-timeline-title">{t("memberPortalPlanTitle")}</p>
+                    <p className="member-timeline-date">
+                      {t("memberStatusActive")} · {formatDate(membership.start_date, locale)}
+                    </p>
+                  </div>
+                </div>
+                <div className="member-timeline-item">
+                  <div
+                    className="member-timeline-dot"
+                    style={{
+                      background: isExpired
+                        ? "var(--danger)"
+                        : isExpiringSoon
+                          ? "var(--warning)"
+                          : "var(--success)",
+                      color: "white",
+                    }}
+                  >
+                    <FiCalendar aria-hidden="true" style={{ fontSize: "0.5rem" }} />
+                  </div>
+                  <div className="member-timeline-content">
+                    <p className="member-timeline-title">
+                      {isExpired ? t("memberPortalExpired") : t("memberPortalEnds")}
+                    </p>
+                    <p className="member-timeline-date">{formatDate(membership.end_date, locale)}</p>
+                  </div>
                 </div>
               </div>
-              <div className="space-y-4 p-5">
-                <div>
-                  <div className="mb-2 flex justify-between text-xs font-bold text-muted-foreground">
-                    <span>{t("memberPortalProgress")}</span>
-                    <span>{progress}%</span>
-                  </div>
-                  <div className="member-progress-track" aria-hidden="true">
-                    <div
-                      className={`member-progress-fill ${
-                        isExpired
-                          ? "member-progress-expired"
-                          : isExpiringSoon
-                            ? "member-progress-warning"
-                            : ""
-                      }`}
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="member-stat-tile">
-                    <FiClock className="text-lg text-muted-foreground" aria-hidden="true" />
-                    <div>
-                      <p className="member-stat-label">{t("memberPortalDaysLeft")}</p>
-                      <p className="member-stat-value">{isExpired ? t("memberPortalExpired") : daysLeft}</p>
-                    </div>
-                  </div>
-                  <div className="member-stat-tile">
-                    <FiCalendar className="text-lg text-muted-foreground" aria-hidden="true" />
-                    <div>
-                      <p className="member-stat-label">{t("memberPortalEnds")}</p>
-                      <p className="member-stat-value">{formatDate(membership.end_date, locale)}</p>
-                    </div>
-                  </div>
-                </div>
+            ) : null}
+
+            <article className="scoreboard-card">
+              <FiMapPin aria-hidden="true" className="shrink-0 text-xl" style={{ color: "var(--muted-foreground)" }} />
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-foreground">{t("memberPortalGymTitle")}</p>
+                <p className="text-base font-black text-foreground mt-0.5">{portal.gym.name}</p>
+                {portal.gym.phone ? (
+                  <a href={`tel:${portal.gym.phone}`} className="inline-flex items-center gap-2 mt-1 text-sm font-bold" style={{ color: "var(--muted-foreground)" }}>
+                    <FiPhone aria-hidden="true" />
+                    {displayPhone(portal.gym.phone)}
+                  </a>
+                ) : null}
+                {portal.coach ? (
+                  <p className="mt-2 text-xs font-semibold text-muted-foreground">
+                    {t("memberCurrentCoach")}: <span className="text-foreground">{portal.coach.full_name}</span>
+                  </p>
+                ) : null}
               </div>
             </article>
-          ) : null}
 
-          <article className="panel-card space-y-3 p-5">
-            <h2 className="flex items-center gap-2 text-sm font-black text-foreground">
-              <FiMapPin aria-hidden="true" />
-              {t("memberPortalGymTitle")}
-            </h2>
-            <p className="text-lg font-black">{portal.gym.name}</p>
-            {portal.gym.phone ? (
-              <a href={`tel:${portal.gym.phone}`} className="inline-flex items-center gap-2 text-sm font-bold">
-                <FiPhone aria-hidden="true" />
-                {portal.gym.phone}
-              </a>
-            ) : null}
-            {portal.coach ? (
-              <p className="text-sm font-medium text-muted-foreground">
-                {t("memberCurrentCoach")}: <strong className="text-foreground">{portal.coach.full_name}</strong>
-              </p>
-            ) : null}
-          </article>
-        </>
-      ) : null}
+            <div className="pt-4 text-center">
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 text-xs font-bold text-danger hover:text-danger/80"
+                onClick={() => setLeaveConfirm(true)}
+              >
+                <FiLogOut aria-hidden="true" />
+                {t("memberLeaveGym")}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
-      {tab === "coach" ? (
-        <MemberCoachSection
-          locale={locale}
-          currency={portal.gym.base_currency}
-          portal={portal}
-          currentCoachId={portal.coach?.id}
-          onUpdated={onRetry}
-        />
-      ) : null}
+        {tab === "coach" ? (
+          <MemberCoachSection
+            locale={locale}
+            currency={portal.gym.base_currency}
+            portal={portal}
+            currentCoachId={portal.coach?.id}
+            onUpdated={onRetry}
+          />
+        ) : null}
 
-      {tab === "programs" ? (
-        <MemberProgramsSection
-          locale={locale}
-          coachId={portal.coach?.id}
-          currency={portal.gym.base_currency}
-          onJoined={onRetry}
-        />
-      ) : null}
+        {tab === "programs" ? (
+          <MemberProgramsSection
+            locale={locale}
+            coachId={portal.coach?.id}
+            currency={portal.gym.base_currency}
+            onJoined={onRetry}
+          />
+        ) : null}
 
-      {tab === "profile" ? (
-        <MemberProfileSection portal={portal} locale={locale} onUpdated={onRetry} />
-      ) : null}
+        {tab === "profile" ? (
+          <MemberProfileSection portal={portal} locale={locale} onUpdated={onRetry} />
+        ) : null}
+      </div>
+
+      <Modal open={leaveConfirm} onClose={() => setLeaveConfirm(false)} title={t("memberLeaveTitle")}>
+        <p className="text-sm font-semibold text-muted-foreground">{t("memberLeaveMessage")}</p>
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            className="rounded-xl border border-glass-border px-4 py-2 text-sm font-bold"
+            onClick={() => setLeaveConfirm(false)}
+          >
+            {t("memberModalCancel")}
+          </button>
+          <button
+            type="button"
+            disabled={leaving}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-2 text-sm font-black text-danger"
+            onClick={async () => {
+              setLeaving(true);
+              try {
+                await leaveGym();
+                showToast("success", t("memberLeaveSuccess"));
+                setLeaveConfirm(false);
+                onRetry();
+              } catch {
+                showToast("error", t("authErrorGeneric"));
+              } finally {
+                setLeaving(false);
+              }
+            }}
+          >
+            {leaving ? <Spinner label="" /> : <FiLogOut aria-hidden="true" />}
+            {t("memberLeaveGym")}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }

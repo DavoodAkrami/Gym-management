@@ -20,7 +20,6 @@ import { useAppSelector } from "@/lib/store/hooks";
 export function HomeContent() {
   const locale = useAppSelector((state) => state.ui.locale);
   const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(locale, key);
-  const StartIcon = locale === "fa" ? FiArrowLeft : FiArrowRight;
   const EndIcon = locale === "fa" ? FiArrowLeft : FiArrowRight;
 
   const features = [
@@ -38,95 +37,101 @@ export function HomeContent() {
         <div className="mx-auto flex w-full max-w-6xl flex-col">
           <SiteHeader showNavLinks={false} />
 
-          <section className="py-16 text-center sm:py-24">
-            <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2 text-sm font-bold">
-              <span className="rounded-full border border-border px-4 py-1.5 text-muted-foreground">
-                {t("heroAudienceOwners")}
-              </span>
-              <span className="text-muted-foreground">&middot;</span>
-              <span className="rounded-full border border-border px-4 py-1.5 text-muted-foreground">
-                {t("heroAudienceSeekers")}
-              </span>
-            </div>
-            <h1 className="mx-auto mt-6 max-w-3xl text-4xl font-black leading-tight text-foreground sm:text-5xl lg:text-6xl">
-              {t("heroTitle")}
-            </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg font-medium leading-8 text-muted-foreground sm:text-xl">
-              {t("heroSubtitle")}
-            </p>
-            <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <a
-                href="#features"
-                className="btn-primary inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-black no-underline shadow-soft"
-              >
-                {t("heroCtaFeatures")}
-              </a>
-              <Link
-                href="/signup"
-                className="inline-flex items-center gap-2 rounded-2xl border border-border px-6 py-3 text-sm font-black text-foreground no-underline hover:bg-surface"
-              >
-                {t("navStart")}
-                <StartIcon aria-hidden="true" />
-              </Link>
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 rounded-2xl border border-border px-6 py-3 text-sm font-black text-foreground no-underline hover:bg-surface"
-              >
-                {t("footerLogin")}
-              </Link>
-            </div>
+          <section className="hero-section">
+            <div className="hero-watermark" aria-hidden="true">GM</div>
+            <div className="hero-pulse-ring" aria-hidden="true" />
+            <div className="hero-pulse-ring" aria-hidden="true" />
+            <div className="hero-pulse-ring" aria-hidden="true" />
 
-            <Link
-              href="/gyms"
-              className="mt-8 inline-flex items-center gap-2 rounded-2xl border-2 border-primary px-6 py-3 text-sm font-black text-primary no-underline hover:bg-primary-soft/30"
-            >
-              <FiSearch className="shrink-0" aria-hidden="true" />
-              {t("discoverTitle")}
-            </Link>
+            <div className="hero-inner">
+              <div className="hero-fade-in">
+                <span className="hero-eyebrow">{t("heroAudienceOwners")}</span>
+              </div>
+
+              <div className="hero-fade-in">
+                <div className="hero-accent-bar" />
+              </div>
+
+              <h1 className="hero-fade-in hero-headline">{t("heroTitle")}</h1>
+
+              <p className="hero-fade-in hero-sub">{t("heroSubtitle")}</p>
+
+              <div className="hero-fade-in hero-actions">
+                <Link
+                  href="/signup"
+                  className="cta-super"
+                >
+                  {t("navStart")}
+                  <EndIcon aria-hidden="true" />
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-border px-8 py-4 text-sm font-black text-foreground no-underline hover:bg-surface"
+                >
+                  {t("footerLogin")}
+                </Link>
+                <a
+                  href="#features"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-border px-8 py-4 text-sm font-black text-foreground no-underline hover:bg-surface"
+                >
+                  {t("heroCtaFeatures")}
+                </a>
+              </div>
+
+              <div className="hero-fade-in" style={{ marginTop: "2rem" }}>
+                <Link
+                  href="/gyms"
+                  className="inline-flex items-center gap-3 rounded-2xl border-2 border-primary px-8 py-4 text-base font-black text-primary no-underline shadow-soft hover:bg-primary-soft/30"
+                >
+                  <FiSearch className="shrink-0" aria-hidden="true" />
+                  {t("discoverTitle")}
+                </Link>
+              </div>
+            </div>
           </section>
 
-          <section id="features" className="scroll-mt-20 py-16">
-            <h2 className="text-center text-3xl font-black sm:text-4xl">{t("featuresTitle")}</h2>
-            <p className="mx-auto mt-4 max-w-xl text-center text-base font-medium leading-7 text-muted-foreground">
-              {locale === "fa"
-                ? "ابزارهایی که برای مدیریت روزانه باشگاه نیاز دارید."
-                : "The tools you need to run your gym day-to-day."}
-            </p>
-            <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {features.map((feature) => {
+          <section id="features" className="features-section scroll-mt-20">
+            <div className="features-header">
+              <div className="features-accent-bar" />
+              <h2 className="features-title">{t("featuresTitle")}</h2>
+              <p className="features-sub">
+                {locale === "fa"
+                  ? "ابزارهایی که برای مدیریت روزانه باشگاه نیاز دارید."
+                  : "The tools you need to run your gym day-to-day."}
+              </p>
+            </div>
+
+            <div className="features-grid">
+              {features.map((feature, i) => {
                 const Icon = feature.icon;
+                const num = String(i + 1).padStart(2, "0");
                 return (
-                  <article
-                    key={feature.title}
-                    className="rounded-2xl border border-border p-6 transition-colors hover:border-interactive-border"
-                  >
-                    <Icon className="mb-5 text-3xl text-muted-foreground" aria-hidden="true" />
-                    <h3 className="text-xl font-black">{feature.title}</h3>
-                    <p className="mt-3 text-base font-medium leading-7 text-muted-foreground">
-                      {feature.description}
-                    </p>
+                  <article key={feature.title} className="feature-card card-fade-in">
+                    <div className="feature-card-top">
+                      <span className="feature-card-num">{num}</span>
+                      <Icon className="feature-card-icon" aria-hidden="true" />
+                    </div>
+                    <h3 className="feature-card-title">{feature.title}</h3>
+                    <p className="feature-card-desc">{feature.description}</p>
                   </article>
                 );
               })}
             </div>
           </section>
 
-          <footer className="border-t border-border py-8">
-            <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-              <p className="text-sm font-bold text-muted-foreground">
+          <footer className="landing-footer">
+            <div className="footer-accent-bar" />
+            <div className="footer-inner">
+              <p className="footer-copy">
                 &copy; {new Date().getFullYear()} {t("brandName")}. {t("footerRights")}
               </p>
-              <div className="flex items-center gap-5 text-sm font-bold text-muted-foreground">
-                <a href="#features">{t("footerFeatures")}</a>
-                <Link href="/gyms" className="no-underline">
-                  {t("discoverTitle")}
-                </Link>
-                <Link href="/signup" className="no-underline">
-                  {t("footerSignup")}
-                </Link>
-                <Link href="/login" className="inline-flex items-center gap-1 no-underline">
+              <div className="footer-links">
+                <a href="#features" className="footer-link">{t("footerFeatures")}</a>
+                <Link href="/gyms" className="footer-link">{t("discoverTitle")}</Link>
+                <Link href="/signup" className="footer-link">{t("footerSignup")}</Link>
+                <Link href="/login" className="footer-link">
                   {t("footerLogin")}
-                  <EndIcon aria-hidden="true" />
+                  <EndIcon aria-hidden="true" className="inline-block ms-1" />
                 </Link>
               </div>
             </div>

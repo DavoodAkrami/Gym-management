@@ -1,5 +1,7 @@
 "use client";
 
+import { AttendancePanel } from "@/components/panel/AttendancePanel";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CoachesPanel } from "@/components/panel/CoachesPanel";
 import { MembersPanel } from "@/components/panel/MembersPanel";
 import { MembershipsPanel } from "@/components/panel/MembershipsPanel";
@@ -40,6 +42,8 @@ export function PanelSectionContent({
     content = <CoachesPanel gymId={gymId} locale={locale} currency={currency} />;
   } else if (section === "signup") {
     content = <SignupLinkPanel gymId={gymId} locale={locale} />;
+  } else if (section === "attendance") {
+    content = <AttendancePanel gymId={gymId} locale={locale} />;
   } else if (section === "profile") {
     content = <GymProfilePanel gymId={gymId} gymSlug={gymSlug} locale={locale} />;
   } else {
@@ -50,5 +54,9 @@ export function PanelSectionContent({
     );
   }
 
-  return <div className="panel-section-root">{content}</div>;
+  return (
+    <div className="panel-section-root">
+      <ErrorBoundary>{content}</ErrorBoundary>
+    </div>
+  );
 }

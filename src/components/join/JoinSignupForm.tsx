@@ -10,6 +10,7 @@ import { formatAuthError } from "@/lib/auth/post-login";
 import { resolveSessionAfterSignUp } from "@/lib/auth/session";
 import { getTranslation } from "@/lib/i18n/translations";
 import { authActions } from "@/lib/store/slices";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
   fetchSignupContext,
@@ -19,6 +20,7 @@ import {
 import { ListSkeleton } from "@/components/panel/PanelSkeleton";
 import { Spinner } from "@/components/ui/Spinner";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { showToast } from "@/lib/toast/client";
 
 type JoinSignupFormProps = {
   token: string;
@@ -39,7 +41,6 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
-  const [zipCode, setZipCode] = useState("");
   const [nationalId, setNationalId] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -103,6 +104,11 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
       return;
     }
 
+    if (nationalId && !/^\d{10}$/.test(nationalId)) {
+      setFormError(t("memberNationalIdFormat"));
+      return;
+    }
+
     if (!isSupabaseConfigured()) {
       setFormError("Supabase is not configured.");
       return;
@@ -113,17 +119,13 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
     try {
       const supabase = createSupabaseBrowserClient();
       const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+      const usePhone = !email.trim();
 
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            role: "member",
-            full_name: fullName,
-          },
-        },
-      });
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp(
+        usePhone
+          ? { phone, password, options: { data: { role: "member", full_name: fullName } } }
+          : { email, password, options: { data: { role: "member", full_name: fullName } } },
+      );
 
       if (signUpError) {
         throw signUpError;
@@ -131,12 +133,13 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
 
       const session = await resolveSessionAfterSignUp(
         supabase,
-        email,
+        usePhone ? phone : email,
         password,
         signUpData.session,
+        usePhone,
       );
 
-      const authUser = authUserFromSession(session.user, email);
+      const authUser = authUserFromSession(session.user, usePhone ? phone : email);
 
       dispatch(
         authActions.setAuth({
@@ -151,17 +154,19 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
         last_name: lastName,
         phone,
         plan_id: planId,
-        zip_code: locale === "en" ? zipCode : undefined,
-        national_id: locale === "fa" ? nationalId : undefined,
-        preferred_language: locale,
+        national_id: nationalId,
+        email: email.trim() || undefined,
       });
 
       setSuccess(true);
+      showToast("success", t("joinSuccessDesc"));
       window.setTimeout(() => {
         router.replace("/member");
       }, 1200);
     } catch (caught) {
-      setFormError(formatAuthError(caught, t("authErrorGeneric")));
+      const msg = formatAuthError(caught, t("authErrorGeneric"));
+      setFormError(msg);
+      showToast("error", msg);
     } finally {
       setSubmitting(false);
     }
@@ -196,9 +201,6 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
     );
   }
 
-  const showZip = locale === "en";
-  const showNationalId = locale === "fa";
-
   return (
     <div className="w-full max-w-lg">
       <div className="mb-4 flex justify-end">
@@ -225,22 +227,13 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
           </label>
           <label className="block sm:col-span-2">
             <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberPhone")}</span>
-            <input required value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3" />
+            <PhoneInput required value={phone} onChange={setPhone} />
           </label>
 
-          {showZip ? (
-            <label className="block sm:col-span-2">
-              <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberZipCode")}</span>
-              <input value={zipCode} onChange={(e) => setZipCode(e.target.value)} className="w-full px-3" />
-            </label>
-          ) : null}
-
-          {showNationalId ? (
-            <label className="block sm:col-span-2">
-              <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberNationalId")}</span>
-              <input value={nationalId} onChange={(e) => setNationalId(e.target.value)} className="w-full px-3" />
-            </label>
-          ) : null}
+          <label className="block sm:col-span-2">
+            <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberNationalId")}</span>
+            <input required value={nationalId} onChange={(e) => setNationalId(e.target.value)} className="w-full px-3" />
+          </label>
 
           <div className="sm:col-span-2">
             <SelectBar
@@ -257,10 +250,9 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
           <fieldset className="space-y-3 sm:col-span-2">
             <legend className="text-sm font-black text-foreground">{t("joinAccountSection")}</legend>
             <label className="block">
-              <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("authEmail")}</span>
+              <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("authEmail")} ({t("authOptional")})</span>
               <input
                 type="email"
-                required
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -290,7 +282,7 @@ export function JoinSignupForm({ token }: JoinSignupFormProps) {
           <button
             type="submit"
             disabled={submitting}
-            className="btn-primary sm:col-span-2 w-full px-4 py-3 text-sm font-black disabled:opacity-70"
+            className="btn-primary inline-flex items-center justify-center gap-2 sm:col-span-2 w-full px-4 py-3 text-sm font-black disabled:opacity-70"
           >
             {submitting ? <Spinner label={t("uiSaving")} /> : t("joinSubmit")}
           </button>

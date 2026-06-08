@@ -1,5 +1,6 @@
 import { sanitizeAvatarForDb } from "@/lib/staff/avatar";
 import { createSupabaseBrowserClient } from "./client";
+import { normalizePhone } from "@/lib/phone";
 
 export type MemberPortalData = {
   member: {
@@ -8,7 +9,6 @@ export type MemberPortalData = {
     first_name: string;
     last_name: string;
     phone: string;
-    preferred_language: "en" | "fa";
     status: string;
     join_date: string;
     avatar_url?: string | null;
@@ -126,7 +126,7 @@ export async function updateMemberSelfProfile(input: MemberProfileInput) {
   const { error } = await supabase.rpc("update_member_self", {
     p_first_name: input.first_name.trim(),
     p_last_name: input.last_name.trim(),
-    p_phone: input.phone.trim(),
+    p_phone: normalizePhone(input.phone),
     p_avatar_url: sanitizeAvatarForDb(input.avatar_url),
   });
   if (error) {
@@ -291,6 +291,12 @@ export async function memberJoinCoachProgram(programId: string) {
   if (error) {
     throw error;
   }
+}
+
+export async function leaveGym(): Promise<void> {
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase.rpc("leave_gym");
+  if (error) throw error;
 }
 
 export async function memberChooseCoachWithProgram(coachId: string, programId: string) {

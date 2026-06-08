@@ -7,6 +7,7 @@ import { StaffAvatar } from "@/components/ui/StaffAvatar";
 import { Spinner } from "@/components/ui/Spinner";
 import { getTranslation } from "@/lib/i18n/translations";
 import { readAvatarFile } from "@/lib/staff/avatar";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 import {
   fetchCoachPortal,
   updateCoachSelfProfile,
@@ -170,11 +171,7 @@ export function CoachSelfProfilePanel({ locale, onUpdated }: CoachSelfProfilePan
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberPhone")}</span>
-            <input
-              value={form.phone}
-              onChange={(e) => setForm((f) => (f ? { ...f, phone: e.target.value } : f))}
-              className="w-full px-3"
-            />
+            <PhoneInput value={form.phone} onChange={(phone) => setForm((f) => (f ? { ...f, phone } : f))} />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("staffEmail")}</span>
@@ -227,7 +224,7 @@ export function CoachSelfProfilePanel({ locale, onUpdated }: CoachSelfProfilePan
         <button
           type="submit"
           disabled={saving}
-          className="btn-primary rounded-xl px-4 py-2.5 text-sm font-black disabled:opacity-70"
+          className="btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black disabled:opacity-70"
         >
           {saving ? <Spinner label={t("uiSaving")} /> : t("coachProfileSave")}
         </button>

@@ -1,11 +1,12 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { FiEdit2, FiPlus } from "react-icons/fi";
+import { FiBookOpen, FiEdit2, FiPlus } from "react-icons/fi";
 import { Modal } from "@/components/Modal";
 import { ListSkeleton } from "@/components/panel/PanelSkeleton";
 import { Spinner } from "@/components/ui/Spinner";
 import { getTranslation } from "@/lib/i18n/translations";
+import { showToast } from "@/lib/toast/client";
 import {
   fetchCoachPrograms,
   upsertCoachProgram,
@@ -76,8 +77,9 @@ export function CoachProgramsPanel({ locale, currency }: CoachProgramsPanelProps
       });
       setOpen(false);
       await load();
+      showToast("success", editing ? t("programEditSuccess") : t("programAddSuccess"));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
+      showToast("error", caught instanceof Error ? caught.message : t("authErrorGeneric"));
     } finally {
       setSaving(false);
     }
@@ -108,15 +110,19 @@ export function CoachProgramsPanel({ locale, currency }: CoachProgramsPanelProps
       ) : null}
 
       {programs.length === 0 ? (
-        <div className="panel-card p-8 text-center">
-          <p className="text-sm font-bold text-muted-foreground">{t("coachProgramsEmpty")}</p>
+        <div className="panel-empty-state">
+          <div className="panel-empty-icon">
+            <FiBookOpen aria-hidden="true" />
+          </div>
+          <p className="panel-empty-title">{t("coachProgramsEmpty")}</p>
+          <p className="panel-empty-desc">{t("coachProgramsPanelDesc")}</p>
         </div>
       ) : (
-        <ul className="space-y-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           {programs.map((program) => (
-            <li
+            <div
               key={program.id}
-              className="panel-card flex cursor-pointer items-start justify-between gap-3 p-4"
+              className="playbook-card"
               onClick={() => openEdit(program)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -126,19 +132,20 @@ export function CoachProgramsPanel({ locale, currency }: CoachProgramsPanelProps
               role="button"
               tabIndex={0}
             >
-              <div>
-                <p className="font-black text-foreground">{program.name}</p>
-                <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                  {program.price} {currency} · {program.duration_days} {t("profilePlanDays")}
-                </p>
-                {program.description ? (
-                  <p className="mt-2 text-sm font-medium text-muted-foreground">{program.description}</p>
-                ) : null}
+              <div className="playbook-card-header">
+                <p className="playbook-card-name">{program.name}</p>
+                <span className="playbook-card-price">{program.price.toLocaleString("en-US")} {currency}</span>
               </div>
-              <FiEdit2 className="shrink-0 text-muted-foreground" aria-hidden="true" />
-            </li>
+              {program.description ? (
+                <p className="playbook-card-desc">{program.description}</p>
+              ) : null}
+              <div className="playbook-card-footer">
+                <span>{program.duration_days} {t("profilePlanDays")}</span>
+                <FiEdit2 aria-hidden="true" />
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
 
       <Modal
@@ -158,9 +165,9 @@ export function CoachProgramsPanel({ locale, currency }: CoachProgramsPanelProps
               type="submit"
               form="coach-program-form"
               disabled={saving}
-              className="btn-primary rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70"
+              className="btn-primary inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70"
             >
-              {saving ? <Spinner label={t("uiSaving")} /> : t("memberModalSave")}
+              {saving ? <Spinner size="sm" label={t("uiSaving")} /> : t("memberModalSave")}
             </button>
           </div>
         }

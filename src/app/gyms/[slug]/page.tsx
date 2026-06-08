@@ -48,17 +48,18 @@ export default function GymDetailPage() {
   if (error || !detail) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-6 px-5 text-center">
+        <div className="gyms-accent" />
         <h1 className="text-2xl font-black">
           {locale === "fa" ? "باشگاه یافت نشد" : "Gym not found"}
         </h1>
-        <p className="text-sm font-medium text-muted-foreground">
+        <p className="text-sm font-medium text-muted-foreground max-w-sm">
           {locale === "fa"
             ? "باشگاهی با این مشخصات وجود ندارد."
             : "No gym matches this address."}
         </p>
         <Link
           href="/gyms"
-          className="btn-primary rounded-2xl px-6 py-3 text-sm font-black no-underline shadow-soft"
+          className="btn-primary inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-black no-underline shadow-soft"
         >
           {locale === "fa" ? "بازگشت به لیست باشگاه‌ها" : "Back to gyms"}
         </Link>
@@ -68,10 +69,12 @@ export default function GymDetailPage() {
 
   const { gym, plans, signup_token } = detail;
   const gymName = gym.name;
+  const EndIcon = locale === "fa" ? FiArrowLeft : FiArrowRight;
 
   return (
     <main className="min-h-screen px-5 py-5 text-foreground sm:px-8 lg:px-10">
       <div className="mx-auto flex w-full max-w-4xl flex-col">
+        {/* Header */}
         <div className="surface-panel flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4">
           <Link
             href="/gyms"
@@ -83,15 +86,48 @@ export default function GymDetailPage() {
           <span className="truncate text-sm font-black">{gymName}</span>
         </div>
 
-        <div className="mt-10 text-center sm:mt-14">
-          <div className="mx-auto flex size-20 items-center justify-center rounded-2xl bg-primary-soft text-3xl font-black text-on-primary sm:size-24 sm:text-4xl">
+        {/* Profile */}
+        <section className="py-14 text-center sm:py-16">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "5.5rem",
+              height: "5.5rem",
+              margin: "0 auto",
+              borderRadius: "var(--radius-glass-lg)",
+              fontWeight: 900,
+              fontSize: "2.25rem",
+              color: "var(--on-primary)",
+              background: "linear-gradient(135deg, var(--primary-strong), var(--primary))",
+            }}
+          >
             {gymName.charAt(0).toUpperCase()}
           </div>
-          <h1 className="mt-6 text-3xl font-black sm:text-4xl">{gymName}</h1>
-        </div>
+          <h1 className="mt-6 text-3xl font-black tracking-tight sm:text-4xl">{gymName}</h1>
+          {(gym.address || gym.phone) && (
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-semibold text-muted-foreground">
+              {gym.address && (
+                <span className="inline-flex items-center gap-1.5">
+                  <FiMapPin className="shrink-0" aria-hidden="true" />
+                  {gym.address}
+                </span>
+              )}
+              {gym.phone && (
+                <span className="inline-flex items-center gap-1.5" dir="ltr">
+                  <FiPhone className="shrink-0" aria-hidden="true" />
+                  {gym.phone}
+                </span>
+              )}
+            </div>
+          )}
+        </section>
 
-        <div className="mt-10 grid gap-6 sm:grid-cols-2">
-          <div className="rounded-2xl border border-border p-6">
+        {/* Info + Plans */}
+        <div className="grid gap-6 sm:grid-cols-2">
+          {/* Info */}
+          <div className="gym-detail-section">
             <h2 className="text-lg font-black">
               {locale === "fa" ? "اطلاعات باشگاه" : "Gym info"}
             </h2>
@@ -117,12 +153,13 @@ export default function GymDetailPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border p-6">
+          {/* Plans */}
+          <div className="gym-detail-section">
             <h2 className="text-lg font-black">
               {locale === "fa" ? "نوع عضویت" : "Membership plans"}
             </h2>
             {plans.length === 0 ? (
-              <p className="mt-5 text-sm font-medium text-muted-foreground">
+              <p className="mt-5 text-sm font-semibold text-muted-foreground">
                 {locale === "fa"
                   ? "هنوز پلنی ثبت نشده است."
                   : "No plans available yet."}
@@ -130,14 +167,12 @@ export default function GymDetailPage() {
             ) : (
               <div className="mt-5 space-y-3">
                 {plans.map((plan) => (
-                  <div
-                    key={plan.id}
-                    className="rounded-xl border border-border p-4"
-                  >
+                  <div key={plan.id} className="gym-detail-plan">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-black">{plan.name}</span>
-                      <span className="text-sm font-black text-primary">
-                        {plan.price.toLocaleString()} {locale === "fa" ? "تومان" : t("currencyToman")}
+                      <span className="flex items-center gap-1 text-sm font-black text-primary">
+                        <FiDollarSign className="shrink-0" aria-hidden="true" />
+                        {plan.price.toLocaleString("en-US")}
                       </span>
                     </div>
                     <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
@@ -151,11 +186,12 @@ export default function GymDetailPage() {
           </div>
         </div>
 
-        <div className="mt-8 rounded-2xl border border-border p-6 text-center">
+        {/* How to join */}
+        <div className="gym-detail-section mt-6 text-center">
           <h2 className="text-lg font-black">
             {locale === "fa" ? "چگونه عضو شویم؟" : "How to join"}
           </h2>
-          <p className="mt-3 text-sm font-medium leading-7 text-muted-foreground">
+          <p className="mt-3 text-sm font-medium leading-7 text-muted-foreground max-w-lg mx-auto">
             {locale === "fa"
               ? "برای عضویت در این باشگاه می‌توانید با شماره تماس بگیرید یا به آدرس مراجعه کنید. اگر از قبل در این باشگاه عضو هستید، وارد شوید."
               : "Contact the gym at the number above or visit their address to sign up. If you are already a member, sign in."}
@@ -166,13 +202,14 @@ export default function GymDetailPage() {
               className="inline-flex items-center gap-2 rounded-2xl border border-border px-6 py-3 text-sm font-black text-foreground no-underline hover:bg-surface"
             >
               {t("footerLogin")}
+              <EndIcon aria-hidden="true" />
             </Link>
           </div>
           {gym.public_signup_enabled && signup_token ? (
-            <div className="mt-5">
+            <div className="mt-4">
               <Link
                 href={`/join/${signup_token}`}
-                className="btn-primary inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-black no-underline shadow-soft"
+                className="btn-primary inline-flex items-center gap-2 rounded-2xl px-8 py-4 text-sm font-black no-underline shadow-soft"
               >
                 {t("gymSignupCta")}
               </Link>
@@ -180,6 +217,7 @@ export default function GymDetailPage() {
           ) : null}
         </div>
 
+        {/* Back */}
         <div className="mt-8 text-center">
           <Link
             href="/gyms"

@@ -6,6 +6,7 @@ import { PlanRingChart } from "@/components/ui/PlanRingChart";
 import { StaffAvatar } from "@/components/ui/StaffAvatar";
 import { getTranslation } from "@/lib/i18n/translations";
 import { formatDate } from "@/lib/date/format";
+import { displayPhone } from "@/lib/phone";
 import { computeDaysLeft, planRemainingLabel } from "@/lib/members/membership-utils";
 import { formatMemberStatus } from "@/lib/members/portal-utils";
 import type { MemberWithMeta } from "@/lib/members/types";
@@ -61,6 +62,7 @@ export function MemberDetailModal({
       onClose={onClose}
       title={t("memberDetailTitle")}
       size="lg"
+      maxBodyHeight="min(80vh, 40rem)"
       footer={
         <div className="flex flex-wrap justify-end gap-2">
           <button
@@ -89,47 +91,45 @@ export function MemberDetailModal({
         </div>
       }
     >
-      <div className="space-y-6">
-        <div className="flex items-center gap-4 border-b border-border pb-5">
+      <div className="space-y-5 sm:space-y-6">
+        <div className="flex items-center gap-3 border-b border-border pb-4 sm:gap-4 sm:pb-5">
           <StaffAvatar
             firstName={member.first_name}
             lastName={member.last_name}
+            avatarUrl={member.avatar_url}
             size="lg"
           />
-          <div className="min-w-0">
-            <p className="text-xl font-black text-foreground">
+          <div className="min-w-0 flex-1">
+            <p className="text-lg font-black text-foreground sm:text-xl">
               {member.first_name} {member.last_name}
             </p>
-            <p className="text-sm font-semibold text-muted-foreground">{member.phone}</p>
-            <span className="member-status-badge member-status-active mt-2 inline-block">
+            <p className="mt-0.5 text-sm font-semibold text-muted-foreground">{displayPhone(member.phone)}</p>
+            <span className="member-status-badge member-status-active mt-1.5 inline-block">
               {formatMemberStatus(member.status, statusLabels)}
             </span>
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-start">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-[auto_1fr]">
           {membership ? (
-            <PlanRingChart
-              startDate={membership.start_date}
-              endDate={membership.end_date}
-              daysLeft={daysLeft ?? 0}
-              size={150}
-              label={membership.plan_name ?? t("memberPlan")}
-              sublabel={ringSublabel}
-            />
+            <div className="flex justify-center lg:justify-start">
+              <PlanRingChart
+                startDate={membership.start_date}
+                endDate={membership.end_date}
+                daysLeft={daysLeft ?? 0}
+                size={120}
+                label={membership.plan_name ?? t("memberPlan")}
+                sublabel={ringSublabel}
+              />
+            </div>
           ) : (
-            <div className="panel-card flex min-h-[10rem] w-full max-w-[12rem] items-center justify-center p-4 text-center">
+            <div className="panel-card mx-auto flex min-h-[8rem] w-full max-w-[10rem] items-center justify-center p-4 text-center lg:mx-0">
               <p className="text-sm font-bold text-muted-foreground">{t("memberNoPlan")}</p>
             </div>
           )}
 
-          <dl className="grid flex-1 gap-3 text-sm sm:grid-cols-2">
+          <dl className="grid grid-cols-2 gap-2 text-sm sm:gap-3">
             <DetailRow label={t("memberJoinDate")} value={formatDate(member.join_date, locale)} />
-            <DetailRow
-              label={t("memberLanguage")}
-              value={member.preferred_language === "fa" ? "فارسی" : "English"}
-            />
-            {member.zip_code ? <DetailRow label={t("memberZipCode")} value={member.zip_code} /> : null}
             {member.national_id ? (
               <DetailRow label={t("memberNationalId")} value={member.national_id} />
             ) : null}
@@ -159,9 +159,9 @@ export function MemberDetailModal({
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="panel-card p-3">
-      <dt className="text-xs font-bold text-muted-foreground">{label}</dt>
-      <dd className="mt-1 font-black text-foreground">{value}</dd>
+    <div className="rounded-lg border border-glass-border bg-glass/40 px-2.5 py-2 sm:px-3 sm:py-2.5">
+      <dt className="text-[0.65rem] font-bold text-muted-foreground sm:text-xs">{label}</dt>
+      <dd className="mt-0.5 text-sm font-black text-foreground sm:text-base">{value}</dd>
     </div>
   );
 }

@@ -165,10 +165,10 @@ export function MemberCoachSection({
             <button
               type="button"
               disabled={saving || !selectedProgramId || programs.length === 0}
-              className="btn-primary rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70"
+              className="btn-primary inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70"
               onClick={() => void handleConfirm()}
             >
-              {saving ? <Spinner label={t("uiSaving")} /> : t("memberCoachModalConfirm")}
+              {saving ? <Spinner size="sm" label={t("uiSaving")} /> : t("memberCoachModalConfirm")}
             </button>
           </div>
         }

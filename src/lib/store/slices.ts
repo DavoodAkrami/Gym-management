@@ -32,11 +32,16 @@ export type Member = {
   first_name: string;
   last_name: string;
   phone: string;
+  email?: string;
   zip_code?: string;
   national_id?: string;
-  preferred_language: "en" | "fa";
   status: "active" | "inactive" | "expired" | "suspended";
   join_date: string;
+  avatar_url?: string;
+  created_at?: string;
+  notes?: string;
+  currentMembership?: Membership & { plan_name?: string };
+  latestMembership?: Membership & { plan_name?: string };
 };
 
 export type Membership = {
@@ -230,6 +235,14 @@ const membersSlice = createSlice({
       upsertEntity(state, action.payload);
     },
     removeMember(state, action: PayloadAction<string>) {
+      state.ids = state.ids.filter((id) => id !== action.payload);
+      delete state.entities[action.payload];
+    },
+    setMembers(state, action: PayloadAction<Member[]>) {
+      state.ids = action.payload.map((m) => m.id);
+      state.entities = Object.fromEntries(action.payload.map((m) => [m.id, m]));
+    },
+    deleteMember(state, action: PayloadAction<string>) {
       state.ids = state.ids.filter((id) => id !== action.payload);
       delete state.entities[action.payload];
     },

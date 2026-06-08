@@ -6,6 +6,7 @@ import { FiCopy, FiDownload, FiRefreshCw } from "react-icons/fi";
 import { ListSkeleton } from "@/components/panel/PanelSkeleton";
 import { Spinner } from "@/components/ui/Spinner";
 import { getTranslation } from "@/lib/i18n/translations";
+import { showToast } from "@/lib/toast/client";
 import {
   ensureSignupLink,
   regenerateSignupLink,
@@ -145,8 +146,9 @@ export function SignupLinkPanel({ gymId, locale }: SignupLinkPanelProps) {
       setLink(info);
       syncRedux(info);
       setCopied(false);
+      showToast("success", t("signupLinkRegenerated"));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : getTranslation(locale, "authErrorGeneric"));
+      showToast("error", caught instanceof Error ? caught.message : getTranslation(locale, "authErrorGeneric"));
     } finally {
       setBusy(false);
     }
@@ -209,10 +211,10 @@ export function SignupLinkPanel({ gymId, locale }: SignupLinkPanelProps) {
         type="button"
         disabled={busy}
         onClick={() => void handleRegenerate()}
-        className="inline-flex items-center gap-2 border border-glass-border bg-glass px-4 py-2.5 text-sm font-bold text-foreground"
+        className="inline-flex items-center justify-center gap-2 border border-glass-border bg-glass px-4 py-2.5 text-sm font-bold text-foreground"
       >
         {busy ? (
-          <Spinner label={t("uiLoading")} />
+          <Spinner size="sm" label={t("uiLoading")} />
         ) : (
           <>
             <FiRefreshCw aria-hidden="true" />

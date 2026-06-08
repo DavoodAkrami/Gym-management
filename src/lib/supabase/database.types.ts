@@ -35,15 +35,16 @@ export type MemberRow = {
   first_name: string;
   last_name: string;
   phone: string;
+  email: string | null;
   zip_code: string | null;
   national_id: string | null;
-  preferred_language: "en" | "fa";
   birth_date: string | null;
   gender: string | null;
   status: "active" | "inactive" | "expired" | "suspended";
   notes: string | null;
   join_date: string;
   created_at: string;
+  avatar_url: string | null;
 };
 
 export type MembershipRow = {

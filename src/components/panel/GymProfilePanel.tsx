@@ -1,14 +1,11 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { FiEdit2, FiLogOut, FiPlus, FiTrash2 } from "react-icons/fi";
-import { Modal } from "@/components/Modal";
+import { FiLogOut } from "react-icons/fi";
 import { ListSkeleton } from "@/components/panel/PanelSkeleton";
-import { StaffAvatar } from "@/components/ui/StaffAvatar";
 import { Spinner } from "@/components/ui/Spinner";
-import { readAvatarFile } from "@/lib/staff/avatar";
 import { getTranslation } from "@/lib/i18n/translations";
-import { DEFAULT_ENABLED_SECTIONS, panelSections } from "@/lib/panel/sections";
+import { DEFAULT_ENABLED_SECTIONS } from "@/lib/panel/sections";
 import {
   createGymPlan,
   deleteGymPlan,
@@ -24,6 +21,10 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { authActions, gymPlansActions, gymsActions, type GymPlan } from "@/lib/store/slices";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import type { Locale } from "@/lib/store/slices";
+import { showToast } from "@/lib/toast/client";
+import { OwnerProfileSection } from "./OwnerProfileSection";
+import { GymDetailsSection } from "./GymDetailsSection";
+import { PlansSection } from "./PlansSection";
 
 type GymProfilePanelProps = {
   gymId: string;
@@ -152,9 +153,12 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
         ownerInitialRef.current = { name: ownerName, avatar: ownerAvatar };
       }
       setSuccess(t("profileSaved"));
+      showToast("success", t("profileSaved"));
       window.setTimeout(() => setSuccess(null), 3000);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
+      const msg = caught instanceof Error ? caught.message : t("authErrorGeneric");
+      setError(msg);
+      showToast("error", msg);
     } finally {
       setSaving(false);
     }
@@ -198,8 +202,11 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
         dispatch(gymPlansActions.upsertGymPlan(plan));
       }
       setPlanModal({ type: "none" });
+      showToast("success", t("profilePlanSaved"));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
+      const msg = caught instanceof Error ? caught.message : t("authErrorGeneric");
+      setError(msg);
+      showToast("error", msg);
     } finally {
       setSavingPlan(false);
     }
@@ -218,10 +225,31 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
       setPlans((prev) => prev.filter((item) => item.id !== planModal.plan.id));
       dispatch(gymPlansActions.removeGymPlan(planModal.plan.id));
       setPlanModal({ type: "none" });
+      showToast("success", t("profilePlanDeleted"));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
+      const msg = caught instanceof Error ? caught.message : t("authErrorGeneric");
+      setError(msg);
+      showToast("error", msg);
     } finally {
       setSavingPlan(false);
+    }
+  };
+
+  const handleToggleSection = async (sectionId: string) => {
+    const next = enabledSections.includes(sectionId)
+      ? enabledSections.filter((id) => id !== sectionId)
+      : [...enabledSections, sectionId];
+    setEnabledSections(next);
+    setSavingSections(true);
+    setError(null);
+    try {
+      const gym = await updateGymSections(gymId, next);
+      dispatch(gymsActions.upsertGym(gym));
+    } catch (caught) {
+      setEnabledSections(enabledSections);
+      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
+    } finally {
+      setSavingSections(false);
     }
   };
 
@@ -243,341 +271,46 @@ export function GymProfilePanel({ gymId, gymSlug, locale }: GymProfilePanelProps
         </p>
       ) : null}
 
-      {/* Owner profile */}
-      <section className="space-y-5">
-        <div className="flex items-center gap-4">
-          <StaffAvatar
-            firstName={ownerName.split(" ")[0] ?? ""}
-            lastName={ownerName.split(" ").slice(1).join(" ") ?? ""}
-            avatarUrl={ownerAvatar}
-            size="lg"
-          />
-          <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-glass-border bg-glass/40 px-4 py-2 text-sm font-bold text-muted-foreground hover:bg-glass/60">
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                void readAvatarFile(file).then(setOwnerAvatar).catch(() => {});
-              }}
-            />
-            {t("staffPhoto")}
-          </label>
-        </div>
-        <label className="block sm:max-w-xs">
-          <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("authFullName")}</span>
-          <input
-            required
-            value={ownerName}
-            onChange={(e) => setOwnerName(e.target.value)}
-            className="w-full px-3"
-          />
-        </label>
-      </section>
+      <OwnerProfileSection
+        ownerName={ownerName}
+        onChangeName={setOwnerName}
+        ownerAvatar={ownerAvatar}
+        onChangeAvatar={setOwnerAvatar}
+        t={t}
+      />
 
       <div className="my-8 border-t border-glass-border" />
 
-      {/* Gym information */}
-      <section className="space-y-4">
-        <label className="block">
-          <span className="mb-1 block text-xs font-bold text-muted-foreground">
-            {t("onboardingGymName")}
-          </span>
-          <input
-            required
-            value={gymForm.name}
-            onChange={(e) => setGymForm((v) => ({ ...v, name: e.target.value }))}
-            className="w-full px-3"
-          />
-        </label>
-
-        <label className="block">
-          <span className="mb-1 block text-xs font-bold text-muted-foreground">
-            {t("profileGymSlug")}
-          </span>
-          <input readOnly value={slug} className="w-full px-3 opacity-80" />
-          <p className="mt-1 text-xs font-medium text-muted-foreground">{t("profileGymSlugHint")}</p>
-        </label>
-
-        <label className="block">
-          <span className="mb-1 block text-xs font-bold text-muted-foreground">
-            {t("onboardingAddress")}
-          </span>
-          <textarea
-            required
-            rows={2}
-            value={gymForm.address}
-            onChange={(e) => setGymForm((v) => ({ ...v, address: e.target.value }))}
-            className="w-full px-3 py-2"
-          />
-        </label>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-xs font-bold text-muted-foreground">
-              {t("onboardingPhone")}
-            </span>
-            <input
-              required
-              value={gymForm.phone}
-              onChange={(e) => setGymForm((v) => ({ ...v, phone: e.target.value }))}
-              className="w-full px-3"
-            />
-          </label>
-        </div>
-
-        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-glass-border bg-glass/40 px-3 py-2.5 text-sm font-bold text-foreground has-checked:border-primary/40 has-checked:bg-primary/5">
-          <input
-            type="checkbox"
-            checked={gymForm.public_signup_enabled === true}
-            onChange={(e) => setGymForm((v) => ({ ...v, public_signup_enabled: e.target.checked }))}
-            className="size-4 accent-primary"
-          />
-          <span className="flex flex-col">
-            <span>{t("publicSignupProfileLabel")}</span>
-            <span className="text-xs font-medium text-muted-foreground">{t("publicSignupProfileDesc")}</span>
-          </span>
-        </label>
-
-        <div className="flex justify-end">
-          <button
-            type="button"
-            disabled={!dirty || saving}
-            className="btn-primary rounded-xl px-5 py-2.5 text-sm font-black disabled:opacity-70"
-            onClick={() => void handleSave()}
-          >
-            {saving ? <Spinner label={t("uiSaving")} /> : t("profileSaveChanges")}
-          </button>
-        </div>
-      </section>
+      <GymDetailsSection
+        gymForm={gymForm}
+        onChange={setGymForm}
+        slug={slug}
+        enabledSections={enabledSections}
+        onToggleSection={handleToggleSection}
+        savingSections={savingSections}
+        dirty={dirty}
+        saving={saving}
+        onSave={handleSave}
+        t={t}
+      />
 
       <div className="my-8 border-t border-glass-border" />
 
-      {/* Panel sections */}
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-lg font-black text-foreground">{t("profilePanelsSection")}</h2>
-          <p className="mt-1 text-sm font-medium text-muted-foreground">{t("profilePanelsDesc")}</p>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {panelSections.map((section) => {
-            const locked = section.id === "members" || section.id === "profile";
-            const isChecked = enabledSections.includes(section.id);
-            return (
-              <label
-                key={section.id}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-bold ${
-                  locked
-                    ? "border-glass-border bg-glass/20 text-muted-foreground cursor-not-allowed"
-                    : "border-glass-border bg-glass/40 text-foreground hover:bg-glass/60 has-checked:border-primary/40 has-checked:bg-primary/5"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={isChecked}
-                  disabled={locked}
-                  onChange={async (e) => {
-                    const next = e.target.checked
-                      ? [...enabledSections, section.id]
-                      : enabledSections.filter((id) => id !== section.id);
-                    setEnabledSections(next);
-                    setSavingSections(true);
-                    setError(null);
-                    try {
-                      const gym = await updateGymSections(gymId, next);
-                      dispatch(gymsActions.upsertGym(gym));
-                    } catch (caught) {
-                      setEnabledSections(enabledSections);
-                      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
-                    } finally {
-                      setSavingSections(false);
-                    }
-                  }}
-                  className="size-4 accent-primary"
-                />
-                <span className="flex items-center gap-2">
-                  {t(section.labelKey)}
-                  {locked ? (
-                    <span className="rounded-md bg-glass px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
-                      {t("profilePanelsLocked")}
-                    </span>
-                  ) : null}
-                </span>
-              </label>
-            );
-          })}
-        </div>
-        {savingSections ? (
-          <p className="text-xs font-medium text-muted-foreground">{t("uiSaving")}</p>
-        ) : null}
-      </section>
+      <PlansSection
+        plans={plans}
+        planModal={planModal}
+        planForm={planForm}
+        savingPlan={savingPlan}
+        onOpenModal={openPlanModal}
+        onCloseModal={() => setPlanModal({ type: "none" })}
+        onPlanFormChange={setPlanForm}
+        onPlanSubmit={handlePlanSubmit}
+        onDeletePlan={handleDeletePlan}
+        t={t}
+      />
 
       <div className="my-8 border-t border-glass-border" />
 
-      {/* Pricing plans */}
-      <section className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-black text-foreground">{t("profilePlansSection")}</h2>
-            <p className="mt-1 text-sm font-medium text-muted-foreground">{t("profilePlansDesc")}</p>
-          </div>
-          <button
-            type="button"
-            className="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black"
-            onClick={() => openPlanModal({ type: "add" })}
-          >
-            <FiPlus aria-hidden="true" />
-            {t("profilePlanAdd")}
-          </button>
-        </div>
-
-        {plans.length === 0 ? (
-          <div className="flex items-center justify-center rounded-xl border border-dashed border-glass-border p-8 text-center">
-            <p className="text-sm font-bold text-muted-foreground">{t("profilePlansEmpty")}</p>
-          </div>
-        ) : (
-          <ul className="space-y-2">
-            {plans.map((plan) => (
-              <li
-                key={plan.id}
-                className="flex flex-col gap-3 rounded-xl border border-glass-border bg-glass/20 p-4 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div>
-                  <p className="font-black text-foreground">{plan.name}</p>
-                  <p className="text-sm font-semibold text-muted-foreground">
-                    {t("currencyToman")} {plan.price.toFixed(2)} · {plan.duration_days}{" "}
-                    {t("profilePlanDays")}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-xl border border-glass-border px-3 py-2 text-xs font-bold"
-                    onClick={() => openPlanModal({ type: "edit", plan })}
-                  >
-                    <FiEdit2 aria-hidden="true" />
-                    {t("profilePlanEdit")}
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-xs font-bold text-danger"
-                    onClick={() => openPlanModal({ type: "delete", plan })}
-                  >
-                    <FiTrash2 aria-hidden="true" />
-                    {t("profilePlanDelete")}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <Modal
-        open={planModal.type === "add" || planModal.type === "edit"}
-        onClose={() => setPlanModal({ type: "none" })}
-        title={planModal.type === "edit" ? t("profilePlanEdit") : t("profilePlanAdd")}
-        footer={
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="rounded-xl border border-glass-border px-4 py-2 text-sm font-bold"
-              onClick={() => setPlanModal({ type: "none" })}
-            >
-              {t("memberModalCancel")}
-            </button>
-            <button
-              type="submit"
-              form="gym-plan-form"
-              disabled={savingPlan}
-              className="btn-primary rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70"
-            >
-              {savingPlan ? <Spinner label={t("uiSaving")} /> : t("memberModalSave")}
-            </button>
-          </div>
-        }
-      >
-        <form id="gym-plan-form" className="grid gap-3" onSubmit={(e) => void handlePlanSubmit(e)}>
-          <label className="block">
-            <span className="mb-1 block text-xs font-bold text-muted-foreground">
-              {t("onboardingPlanName")}
-            </span>
-            <input
-              required
-              value={planForm.name}
-              onChange={(e) => setPlanForm((v) => ({ ...v, name: e.target.value }))}
-              className="w-full px-3"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-bold text-muted-foreground">
-              {t("onboardingPlanPrice")} ({t("currencyToman")})
-            </span>
-            <input
-              required
-              type="number"
-              min={0}
-              step="0.01"
-              value={planForm.price || ""}
-              onChange={(e) =>
-                setPlanForm((v) => ({ ...v, price: Number(e.target.value) || 0 }))
-              }
-              className="w-full px-3"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs font-bold text-muted-foreground">
-              {t("onboardingPlanDuration")}
-            </span>
-            <input
-              required
-              type="number"
-              min={1}
-              step={1}
-              value={planForm.duration_days || ""}
-              onChange={(e) =>
-                setPlanForm((v) => ({ ...v, duration_days: Number(e.target.value) || 1 }))
-              }
-              className="w-full px-3"
-            />
-          </label>
-        </form>
-      </Modal>
-
-      <Modal
-        open={planModal.type === "delete"}
-        onClose={() => setPlanModal({ type: "none" })}
-        title={t("profilePlanDeleteTitle")}
-        footer={
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="rounded-xl border border-glass-border px-4 py-2 text-sm font-bold"
-              onClick={() => setPlanModal({ type: "none" })}
-            >
-              {t("memberModalCancel")}
-            </button>
-            <button
-              type="button"
-              disabled={savingPlan}
-              className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-2 text-sm font-black text-danger"
-              onClick={() => void handleDeletePlan()}
-            >
-              {savingPlan ? <Spinner label={t("uiDeleting")} /> : t("memberDeleteConfirm")}
-            </button>
-          </div>
-        }
-      >
-        <p className="text-sm font-medium text-muted-foreground">
-          {planModal.type === "delete" ? planModal.plan.name : ""}
-        </p>
-      </Modal>
-
-      <div className="my-8 border-t border-glass-border" />
-
-      {/* Logout */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-bold text-muted-foreground">{t("profileAccountSection")}</p>

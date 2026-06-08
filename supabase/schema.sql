@@ -65,6 +65,7 @@ create table if not exists public.members (
     status in ('active', 'inactive', 'expired', 'suspended')
   ),
   notes text,
+  avatar_url text,
   join_date date not null default current_date,
   created_at timestamptz not null default now()
 );

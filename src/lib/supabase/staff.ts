@@ -8,6 +8,7 @@ import {
 } from "@/lib/staff/types";
 import { sanitizeAvatarForDb, staffFullName } from "@/lib/staff/avatar";
 import { createSupabaseBrowserClient } from "./client";
+import { normalizePhone } from "@/lib/phone";
 
 type CoachRow = {
   id: string;
@@ -155,7 +156,7 @@ function buildCoachInsertPayload(gymId: string, values: CoachFormValues) {
     first_name: values.first_name.trim(),
     last_name: values.last_name.trim(),
     full_name: staffFullName(values.first_name, values.last_name),
-    phone: values.phone.trim() || null,
+    phone: normalizePhone(values.phone) || null,
     email: values.email.trim() || null,
     specialty: values.specialty.trim() || null,
     avatar_url: sanitizeAvatarForDb(values.avatar_url),
@@ -176,7 +177,7 @@ function buildTrainerInsertPayload(gymId: string, values: TrainerFormValues) {
     coach_id: values.coach_id,
     first_name: values.first_name.trim(),
     last_name: values.last_name.trim(),
-    phone: values.phone.trim() || null,
+    phone: normalizePhone(values.phone) || null,
     email: values.email.trim() || null,
     specialty: values.specialty.trim() || null,
     avatar_url: sanitizeAvatarForDb(values.avatar_url),
@@ -335,7 +336,7 @@ export async function createGymCoach(gymId: string, values: CoachFormValues) {
     const { error: legacyError } = await supabase.from("coaches").insert({
       gym_id: gymId,
       full_name: fullName,
-      phone: values.phone.trim() || null,
+      phone: normalizePhone(values.phone) || null,
       specialty: values.specialty.trim() || null,
       salary: values.salary ? Number(values.salary) : null,
       active: values.active,
@@ -352,7 +353,7 @@ export async function createGymCoach(gymId: string, values: CoachFormValues) {
     p_gym_id: gymId,
     p_first_name: values.first_name.trim(),
     p_last_name: values.last_name.trim(),
-    p_phone: values.phone.trim() || null,
+    p_phone: normalizePhone(values.phone) || null,
     p_email: values.email.trim() || null,
     p_specialty: values.specialty.trim() || null,
     p_avatar_url: sanitizeAvatarForDb(values.avatar_url),
@@ -388,7 +389,7 @@ export async function updateGymCoach(gymId: string, coachId: string, values: Coa
     first_name: values.first_name.trim(),
     last_name: values.last_name.trim(),
     full_name: staffFullName(values.first_name, values.last_name),
-    phone: values.phone.trim() || null,
+    phone: normalizePhone(values.phone) || null,
     email: values.email.trim() || null,
     specialty: values.specialty.trim() || null,
     avatar_url: avatar,
@@ -414,7 +415,7 @@ export async function updateGymCoach(gymId: string, coachId: string, values: Coa
         .from("coaches")
         .update({
           full_name: staffFullName(values.first_name, values.last_name),
-          phone: values.phone.trim() || null,
+          phone: normalizePhone(values.phone) || null,
           specialty: values.specialty.trim() || null,
           salary: values.salary ? Number(values.salary) : null,
           active: values.active,
@@ -486,7 +487,7 @@ export async function createGymTrainer(gymId: string, values: TrainerFormValues)
     p_coach_id: values.coach_id,
     p_first_name: values.first_name.trim(),
     p_last_name: values.last_name.trim(),
-    p_phone: values.phone.trim() || null,
+    p_phone: normalizePhone(values.phone) || null,
     p_email: values.email.trim() || null,
     p_specialty: values.specialty.trim() || null,
     p_avatar_url: sanitizeAvatarForDb(values.avatar_url),
@@ -525,7 +526,7 @@ export async function updateGymTrainer(
       coach_id: values.coach_id,
       first_name: values.first_name.trim(),
       last_name: values.last_name.trim(),
-      phone: values.phone.trim() || null,
+      phone: normalizePhone(values.phone) || null,
       email: values.email.trim() || null,
       specialty: values.specialty.trim() || null,
       avatar_url: avatar,

@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { StaffAvatar } from "@/components/ui/StaffAvatar";
 import { getTranslation } from "@/lib/i18n/translations";
 import { readAvatarFile } from "@/lib/staff/avatar";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 import {
   defaultCoachPermissions,
   type CoachFormValues,
@@ -199,7 +200,7 @@ export function StaffFormModal({
             type="submit"
             form="staff-form"
             disabled={saving || (kind === "trainer" && coaches.length === 0)}
-            className="btn-primary rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70"
+            className="btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70"
           >
             {saving ? <Spinner label={t("uiSaving")} /> : t("memberModalSave")}
           </button>
@@ -279,14 +280,13 @@ export function StaffFormModal({
 
         <label className="block sm:col-span-1">
           <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberPhone")}</span>
-          <input
+          <PhoneInput
             value={kind === "coach" ? coachValues.phone : trainerValues.phone}
-            onChange={(e) =>
+            onChange={(phone) =>
               kind === "coach"
-                ? setCoachValues((v) => ({ ...v, phone: e.target.value }))
-                : setTrainerValues((v) => ({ ...v, phone: e.target.value }))
+                ? setCoachValues((v) => ({ ...v, phone }))
+                : setTrainerValues((v) => ({ ...v, phone }))
             }
-            className="w-full px-3"
           />
         </label>
         <label className="block sm:col-span-1">

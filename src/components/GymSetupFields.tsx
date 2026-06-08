@@ -10,6 +10,7 @@ import {
   type PanelSectionId,
 } from "@/lib/panel/sections";
 import type { Locale } from "@/lib/store/slices";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 
 export type PlanDraft = {
   id: string;
@@ -115,13 +116,7 @@ export function GymSetupFields({
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className="mb-2 block text-sm font-bold text-muted-foreground">{t("onboardingPhone")}</span>
-            <input
-              type="tel"
-              required
-              value={phone}
-              onChange={(event) => onPhoneChange(event.target.value)}
-              className="w-full px-4"
-            />
+            <PhoneInput required value={phone} onChange={onPhoneChange} />
           </label>
           <div className="block">
             <CurrencySelect

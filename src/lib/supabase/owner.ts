@@ -8,6 +8,7 @@ import {
 } from "@/lib/store/slices";
 import { uniqueSlug } from "@/lib/utils/slug";
 import { createSupabaseBrowserClient } from "./client";
+import { normalizePhone } from "@/lib/phone";
 import type { GymPlanRow, GymRow } from "./database.types";
 
 export type OwnerBootstrapResult = {
@@ -173,7 +174,7 @@ export async function createGymWithPlans(ownerId: string, input: GymOnboardingIn
     p_name: input.name.trim(),
     p_slug: slug,
     p_address: input.address.trim(),
-    p_phone: input.phone.trim(),
+    p_phone: normalizePhone(input.phone),
     p_base_currency: input.baseCurrency.trim() || "IRT",
     p_plans: plansPayload,
     p_enabled_sections: input.enabledSections,
@@ -200,7 +201,7 @@ export async function createGymWithPlans(ownerId: string, input: GymOnboardingIn
       name: input.name.trim(),
       slug,
       address: input.address.trim(),
-      phone: input.phone.trim(),
+      phone: normalizePhone(input.phone),
       base_currency: input.baseCurrency.trim() || "IRT",
       enabled_sections: input.enabledSections,
       public_signup_enabled: input.publicSignupEnabled,

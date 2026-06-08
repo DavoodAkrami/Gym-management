@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { authUserFromSession } from "@/lib/auth/roles";
 import { formatAuthError } from "@/lib/auth/post-login";
 import { resolveSessionAfterSignUp } from "@/lib/auth/session";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 import { getTranslation } from "@/lib/i18n/translations";
 import { readAvatarFile } from "@/lib/staff/avatar";
 import { authActions } from "@/lib/store/slices";
@@ -220,7 +221,7 @@ export function CoachSignupForm({ gymSlug }: CoachSignupFormProps) {
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberPhone")}</span>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3" />
+            <PhoneInput value={phone} onChange={setPhone} />
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("staffSpecialty")}</span>
@@ -262,7 +263,7 @@ export function CoachSignupForm({ gymSlug }: CoachSignupFormProps) {
         <button
           type="submit"
           disabled={submitting}
-          className="btn-primary w-full rounded-2xl px-5 py-3.5 text-sm font-black disabled:opacity-70"
+          className="btn-primary inline-flex items-center justify-center gap-2 w-full rounded-2xl px-5 py-3.5 text-sm font-black disabled:opacity-70"
         >
           {submitting ? <Spinner label={t("uiSaving")} /> : t("coachSignupSubmit")}
         </button>

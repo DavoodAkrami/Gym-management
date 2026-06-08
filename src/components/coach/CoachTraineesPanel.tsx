@@ -8,6 +8,8 @@ import { SelectBar, type SelectBarOption } from "@/components/SelectBar";
 import { StaffAvatar } from "@/components/ui/StaffAvatar";
 import { Spinner } from "@/components/ui/Spinner";
 import { getTranslation } from "@/lib/i18n/translations";
+import { showToast } from "@/lib/toast/client";
+import { displayPhone } from "@/lib/phone";
 import {
   coachAddTrainee,
   coachRemoveTrainee,
@@ -52,7 +54,7 @@ export function CoachTraineesPanel({ locale }: CoachTraineesPanelProps) {
       setAssignable(
         pool.map((m) => ({
           value: m.member_id,
-          label: `${m.full_name}${m.phone ? ` · ${m.phone}` : ""}`,
+          label: `${m.full_name}${m.phone ? ` · ${displayPhone(m.phone)}` : ""}`,
         })),
       );
       setSelectedMemberId(pool[0]?.member_id ?? "");
@@ -78,8 +80,9 @@ export function CoachTraineesPanel({ locale }: CoachTraineesPanelProps) {
       await coachAddTrainee(selectedMemberId);
       setAssignOpen(false);
       await load();
+      showToast("success", t("traineeAddSuccess"));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
+      showToast("error", caught instanceof Error ? caught.message : t("authErrorGeneric"));
     } finally {
       setSaving(false);
     }
@@ -91,8 +94,9 @@ export function CoachTraineesPanel({ locale }: CoachTraineesPanelProps) {
     try {
       await coachRemoveTrainee(memberId);
       await load();
+      showToast("success", t("traineeRemoveSuccess"));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
+      showToast("error", caught instanceof Error ? caught.message : t("authErrorGeneric"));
     } finally {
       setSaving(false);
     }
@@ -146,16 +150,16 @@ export function CoachTraineesPanel({ locale }: CoachTraineesPanelProps) {
               />
               <div className="min-w-0 flex-1">
                 <p className="font-black text-foreground">{trainee.full_name}</p>
-                <p className="text-xs font-bold text-muted-foreground">{trainee.phone}</p>
+                <p className="text-xs font-bold text-muted-foreground">{displayPhone(trainee.phone)}</p>
               </div>
               <button
                 type="button"
                 disabled={saving}
-                className="rounded-xl border border-glass-border p-2 text-danger"
+                className="inline-flex items-center justify-center rounded-xl border border-glass-border p-2 text-danger"
                 title={t("coachRemoveTrainee")}
                 onClick={() => void handleRemove(trainee.member_id)}
               >
-                <FiTrash2 aria-hidden="true" />
+                {saving ? <Spinner size="sm" /> : <FiTrash2 aria-hidden="true" />}
               </button>
             </li>
           ))}
@@ -178,10 +182,10 @@ export function CoachTraineesPanel({ locale }: CoachTraineesPanelProps) {
             <button
               type="button"
               disabled={saving || !selectedMemberId}
-              className="btn-primary rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70"
+              className="btn-primary inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70"
               onClick={() => void handleAssign()}
             >
-              {saving ? <Spinner label={t("uiSaving")} /> : t("coachAddTraineeConfirm")}
+              {saving ? <Spinner size="sm" label={t("uiSaving")} /> : t("coachAddTraineeConfirm")}
             </button>
           </div>
         }

@@ -328,6 +328,9 @@ begin
     raise exception 'Member not found';
   end if;
 
+  delete from public.memberships
+  where member_id = p_member_id and gym_id = p_gym_id;
+
   if p_was_paid then
     update public.payments
     set counts_toward_revenue = true

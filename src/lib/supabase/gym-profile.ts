@@ -2,6 +2,7 @@ import { sanitizeAvatarForDb } from "@/lib/staff/avatar";
 import type { Gym, GymPlan } from "@/lib/store/slices";
 import { createSupabaseBrowserClient } from "./client";
 import type { GymPlanRow, GymRow } from "./database.types";
+import { normalizePhone } from "@/lib/phone";
 
 export type GymProfileInput = {
   name: string;
@@ -80,7 +81,7 @@ export async function updateGymProfile(gymId: string, input: GymProfileInput) {
   const updateData: Record<string, unknown> = {
     name: input.name.trim(),
     address: input.address.trim(),
-    phone: input.phone.trim(),
+    phone: normalizePhone(input.phone),
     base_currency: "IRT",
   };
 

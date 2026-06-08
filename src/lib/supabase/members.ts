@@ -4,6 +4,18 @@ import { sortMembers } from "@/lib/members/sort";
 import type { Member, Membership } from "@/lib/store/slices";
 import { createSupabaseBrowserClient } from "./client";
 import type { MemberLapseRow, MemberRow, MembershipRow } from "./database.types";
+import { normalizePhone } from "@/lib/phone";
+
+function extractError(caught: unknown): string {
+  if (caught instanceof Error) return caught.message;
+  if (caught && typeof caught === "object") {
+    const obj = caught as Record<string, unknown>;
+    if (typeof obj.message === "string") return obj.message;
+    if (typeof obj.error === "string") return obj.error;
+    if (typeof obj.code === "string") return `${obj.code}: ${obj.message ?? obj.details ?? ""}`;
+  }
+  return String(caught);
+}
 
 function mapMember(row: MemberRow): MemberWithMeta {
   return {
@@ -12,13 +24,14 @@ function mapMember(row: MemberRow): MemberWithMeta {
     first_name: row.first_name,
     last_name: row.last_name,
     phone: row.phone,
+    email: row.email ?? undefined,
     zip_code: row.zip_code ?? undefined,
     national_id: row.national_id ?? undefined,
-    preferred_language: row.preferred_language,
     status: row.status,
     join_date: row.join_date,
     created_at: row.created_at,
     notes: row.notes ?? undefined,
+    avatar_url: row.avatar_url ?? undefined,
   };
 }
 
@@ -339,27 +352,45 @@ export async function fetchLapsedMembers(gymId: string) {
     }));
 }
 
-export async function createGymMember(gymId: string, values: MemberFormValues, locale: "en" | "fa" = "en") {
+type RpcMemberResult = {
+  member: { id: string };
+  membership: { id: string } | null;
+};
+
+export async function createGymMember(gymId: string, values: MemberFormValues) {
   if (!values.plan_id) {
     throw new Error("A membership plan is required when adding a member.");
   }
 
   const supabase = createSupabaseBrowserClient();
 
-  const { error: rpcError } = await supabase.rpc("create_gym_member_with_membership", {
-    p_gym_id: gymId,
-    p_first_name: values.first_name.trim(),
-    p_last_name: values.last_name.trim(),
-    p_phone: values.phone.trim(),
-    p_zip_code: values.zip_code.trim() || null,
-    p_national_id: values.national_id.trim() || null,
-    p_preferred_language: locale,
-    p_status: values.status,
-    p_join_date: values.join_date,
-    p_plan_id: values.plan_id,
-  });
+  const { data: rpcResult, error: rpcError } = await supabase
+    .rpc("create_gym_member_with_membership", {
+      p_gym_id: gymId,
+      p_first_name: values.first_name.trim(),
+      p_last_name: values.last_name.trim(),
+      p_phone: normalizePhone(values.phone),
+      p_national_id: values.national_id.trim() || null,
+      p_status: values.status,
+      p_join_date: values.join_date,
+      p_plan_id: values.plan_id,
+    });
 
   if (!rpcError) {
+    const rpcData = rpcResult as unknown as RpcMemberResult | null;
+    const memberId = rpcData?.member?.id;
+    const normalizedPhone = normalizePhone(values.phone);
+    if (memberId && normalizedPhone && values.national_id) {
+      try {
+        const { createMemberAuthUser } = await import("@/app/actions/create-member-auth");
+        const authResult = await createMemberAuthUser(normalizedPhone, values.national_id, memberId, gymId);
+        if (!authResult.success) {
+          console.warn("Auth user not created for new member:", authResult.error);
+        }
+      } catch (err) {
+        console.warn("Auth user creation threw:", err);
+      }
+    }
     return fetchGymMembers(gymId);
   }
 
@@ -370,10 +401,8 @@ export async function createGymMember(gymId: string, values: MemberFormValues, l
       gym_id: gymId,
       first_name: values.first_name.trim(),
       last_name: values.last_name.trim(),
-      phone: values.phone.trim(),
-      zip_code: values.zip_code.trim() || null,
+      phone: normalizePhone(values.phone),
       national_id: values.national_id.trim() || null,
-      preferred_language: locale,
       status: values.status,
       join_date: values.join_date,
     })
@@ -418,35 +447,48 @@ export async function createGymMember(gymId: string, values: MemberFormValues, l
   }
 
   const paidAt = `${values.join_date}T12:00:00.000Z`;
-  const { error: paymentError } = await supabase.from("payments").insert({
-    gym_id: gymId,
-    member_id: memberRow.id,
-    membership_id: membershipRow.id,
-    amount: plan.price,
-    payment_method: "cash",
-    paid_at: paidAt,
-    counts_toward_revenue: true,
-  });
-
-  if (paymentError && !/counts_toward_revenue|column/i.test(paymentError.message)) {
-    const { error: legacyPaymentError } = await supabase.from("payments").insert({
+  try {
+    const { error: paymentError } = await supabase.from("payments").insert({
       gym_id: gymId,
       member_id: memberRow.id,
       membership_id: membershipRow.id,
       amount: plan.price,
       payment_method: "cash",
       paid_at: paidAt,
+      counts_toward_revenue: true,
     });
 
-    if (legacyPaymentError) {
-      throw legacyPaymentError;
+    if (paymentError && !/counts_toward_revenue|column/i.test(paymentError.message)) {
+      await supabase.from("payments").insert({
+        gym_id: gymId,
+        member_id: memberRow.id,
+        membership_id: membershipRow.id,
+        amount: plan.price,
+        payment_method: "cash",
+        paid_at: paidAt,
+      });
+    }
+  } catch {
+    /* payment is best-effort */
+  }
+
+  const normalizedPhone = normalizePhone(values.phone);
+  if (normalizedPhone && values.national_id) {
+    try {
+      const { createMemberAuthUser } = await import("@/app/actions/create-member-auth");
+      const authResult = await createMemberAuthUser(normalizedPhone, values.national_id, memberRow.id, gymId);
+      if (!authResult.success) {
+        console.warn("Auth user not created for new member:", authResult.error);
+      }
+    } catch (err) {
+      console.warn("Auth user creation threw:", err);
     }
   }
 
   return fetchGymMembers(gymId);
 }
 
-export async function updateGymMember(gymId: string, memberId: string, values: MemberFormValues, locale: "en" | "fa" = "en") {
+export async function updateGymMember(gymId: string, memberId: string, values: MemberFormValues) {
   const supabase = createSupabaseBrowserClient();
 
   const { error: memberError } = await supabase
@@ -454,10 +496,8 @@ export async function updateGymMember(gymId: string, memberId: string, values: M
     .update({
       first_name: values.first_name.trim(),
       last_name: values.last_name.trim(),
-      phone: values.phone.trim(),
-      zip_code: values.zip_code.trim() || null,
+      phone: normalizePhone(values.phone),
       national_id: values.national_id.trim() || null,
-      preferred_language: locale,
       status: values.status,
       join_date: values.join_date,
     })
@@ -471,46 +511,82 @@ export async function updateGymMember(gymId: string, memberId: string, values: M
   return fetchGymMembers(gymId);
 }
 
-export async function deleteGymMember(gymId: string, memberId: string, wasPaid: boolean) {
+export async function deleteGymMember(
+  gymId: string,
+  memberId: string,
+  wasPaid: boolean,
+): Promise<{ success: boolean; error?: string }> {
   const supabase = createSupabaseBrowserClient();
 
-  const { error: rpcError } = await supabase.rpc("delete_gym_member_with_income_choice", {
-    p_gym_id: gymId,
-    p_member_id: memberId,
-    p_was_paid: wasPaid,
-  });
+  try {
+    const { error: rpcError } = await supabase.rpc("delete_gym_member_with_income_choice", {
+      p_gym_id: gymId,
+      p_member_id: memberId,
+      p_was_paid: wasPaid,
+    });
 
-  if (!rpcError) {
-    return fetchGymMembers(gymId);
-  }
-
-  if (wasPaid) {
-    const { error } = await supabase.from("members").delete().eq("id", memberId).eq("gym_id", gymId);
-    if (error) {
-      throw rpcError ?? error;
+    if (rpcError) {
+      console.warn("delete RPC failed, trying manual path:", rpcError);
     }
-    return fetchGymMembers(gymId);
+
+    if (!rpcError) {
+      try {
+        await fetchGymMembers(gymId);
+      } catch {
+        console.warn("delete succeeded but refetch failed");
+      }
+      return { success: true };
+    }
+
+    if (wasPaid) {
+      const { error: nullifyError } = await supabase
+        .from("payments")
+        .update({ membership_id: null })
+        .eq("gym_id", gymId)
+        .eq("member_id", memberId);
+      if (nullifyError) throw nullifyError;
+
+      const { error: membershipError } = await supabase
+        .from("memberships")
+        .delete()
+        .eq("member_id", memberId)
+        .eq("gym_id", gymId);
+      if (membershipError) throw membershipError;
+
+      const { error: memberError } = await supabase.from("members").delete().eq("id", memberId).eq("gym_id", gymId);
+      if (memberError) throw memberError;
+    } else {
+      const { error: paymentError } = await supabase
+        .from("payments")
+        .delete()
+        .eq("gym_id", gymId)
+        .eq("member_id", memberId);
+      if (paymentError) throw paymentError;
+
+      const { error: membershipError } = await supabase
+        .from("memberships")
+        .delete()
+        .eq("member_id", memberId)
+        .eq("gym_id", gymId);
+      if (membershipError) throw membershipError;
+
+      const { error: memberError } = await supabase
+        .from("members")
+        .delete()
+        .eq("id", memberId)
+        .eq("gym_id", gymId);
+      if (memberError) throw memberError;
+    }
+
+    try {
+      await fetchGymMembers(gymId);
+    } catch {
+      console.warn("delete succeeded but refetch failed");
+    }
+    return { success: true };
+  } catch (caught) {
+    const message = extractError(caught);
+    console.error("deleteGymMember failed:", message, caught);
+    return { success: false, error: message };
   }
-
-  const { error: paymentError } = await supabase
-    .from("payments")
-    .delete()
-    .eq("gym_id", gymId)
-    .eq("member_id", memberId);
-
-  if (paymentError) {
-    throw rpcError ?? paymentError;
-  }
-
-  const { error: memberError } = await supabase
-    .from("members")
-    .delete()
-    .eq("id", memberId)
-    .eq("gym_id", gymId);
-
-  if (memberError) {
-    throw memberError;
-  }
-
-  return fetchGymMembers(gymId);
 }

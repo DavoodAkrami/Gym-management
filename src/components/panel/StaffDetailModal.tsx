@@ -1,11 +1,12 @@
 "use client";
 
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiTrash2, FiPhone, FiMail, FiStar, FiCalendar } from "react-icons/fi";
 import { Modal } from "@/components/Modal";
 import { PlanRingChart } from "@/components/ui/PlanRingChart";
 import { StaffAvatar } from "@/components/ui/StaffAvatar";
 import { getTranslation } from "@/lib/i18n/translations";
 import { formatDate } from "@/lib/date/format";
+import { displayPhone } from "@/lib/phone";
 import { computeDaysLeft, planRemainingLabel } from "@/lib/members/membership-utils";
 import type { GymCoach, GymTrainer, StaffStatus } from "@/lib/staff/types";
 import type { Locale } from "@/lib/store/slices";
@@ -103,7 +104,8 @@ export function StaffDetailModal({
       }
     >
       <div className="space-y-6">
-        <div className="flex items-center gap-4 border-b border-border pb-5">
+        {/* Profile header */}
+        <div className="flex items-center gap-5 border-b border-border pb-5">
           <StaffAvatar
             firstName={person.first_name}
             lastName={person.last_name}
@@ -111,71 +113,83 @@ export function StaffDetailModal({
             size="lg"
           />
           <div className="min-w-0">
-            <p className="text-xl font-black text-foreground">{person.full_name}</p>
-            <p className="text-sm font-semibold text-muted-foreground">
-              {kind === "coach" ? t("staffRoleCoach") : t("staffRoleTrainer")}
-              {kind === "trainer" && trainer?.coach_name
-                ? ` · ${t("staffReportsTo")} ${trainer.coach_name}`
-                : ""}
-            </p>
-            <span
-              className={`member-status-badge mt-2 inline-block ${
-                person.status === "active"
-                  ? "member-status-active"
-                  : person.status === "on_leave"
-                    ? "member-status-warning"
-                    : "member-status-expired"
-              }`}
-            >
-              {statusLabel(locale, person.status)}
-            </span>
+            <p className="text-2xl font-black text-foreground">{person.full_name}</p>
+            <div className="mt-1 flex items-center gap-2">
+              <span className="text-sm font-semibold text-muted-foreground">
+                {kind === "coach" ? t("staffRoleCoach") : t("staffRoleTrainer")}
+              </span>
+              <span className="text-muted-foreground">·</span>
+              <span
+                className={`member-status-badge ${
+                  person.status === "active"
+                    ? "member-status-active"
+                    : person.status === "on_leave"
+                      ? "member-status-warning"
+                      : "member-status-expired"
+                }`}
+              >
+                {statusLabel(locale, person.status)}
+              </span>
+            </div>
+            {kind === "trainer" && trainer?.coach_name ? (
+              <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                {t("staffReportsTo")} {trainer.coach_name}
+              </p>
+            ) : null}
           </div>
         </div>
 
+        {/* Body: ring + detail grid */}
         <div className="flex flex-col items-center gap-6 lg:flex-row lg:items-start">
-          <PlanRingChart
-            startDate={contractStart}
-            endDate={contractEnd}
-            daysLeft={daysLeft}
-            size={150}
-            label={t("staffContractRing")}
-            sublabel={ringSublabel}
-          />
+          <div className="flex flex-col items-center">
+            <PlanRingChart
+              startDate={contractStart}
+              endDate={contractEnd}
+              daysLeft={daysLeft}
+              size={140}
+              label={t("staffContractRing")}
+              sublabel={ringSublabel}
+            />
+          </div>
 
-          <dl className="grid flex-1 gap-3 text-sm sm:grid-cols-2">
-            {person.phone ? <DetailRow label={t("memberPhone")} value={person.phone} /> : null}
-            {person.email ? <DetailRow label={t("staffEmail")} value={person.email} /> : null}
-            {person.specialty ? <DetailRow label={t("staffSpecialty")} value={person.specialty} /> : null}
-            <DetailRow label={t("memberPortalStarts")} value={formatDate(contractStart, locale)} />
-            <DetailRow label={t("memberPortalEnds")} value={formatDate(contractEnd, locale)} />
+          <div className="grid flex-1 grid-cols-2 gap-3">
+            {person.phone ? (
+              <InfoCard icon={<FiPhone />} label={t("memberPhone")} value={displayPhone(person.phone)} />
+            ) : null}
+            {person.email ? (
+              <InfoCard icon={<FiMail />} label={t("staffEmail")} value={person.email} />
+            ) : null}
+            {person.specialty ? (
+              <InfoCard icon={<FiStar />} label={t("staffSpecialty")} value={person.specialty} />
+            ) : null}
+            <InfoCard icon={<FiCalendar />} label={t("memberPortalStarts")} value={formatDate(contractStart, locale)} />
+            <InfoCard icon={<FiCalendar />} label={t("memberPortalEnds")} value={formatDate(contractEnd, locale)} />
             {person.salary != null ? (
-              <DetailRow label={t("staffSalary")} value={`${person.salary} ${currency}`} />
+              <InfoCard icon={null} label={t("staffSalary")} value={`${person.salary} ${currency}`} />
             ) : null}
             {kind === "coach" && coach ? (
-              <DetailRow
-                label={t("staffTrainerCount")}
-                value={String(coach.trainer_count ?? 0)}
-              />
+              <InfoCard icon={null} label={t("staffTrainerCount")} value={String(coach.trainer_count ?? 0)} />
             ) : null}
-            {kind === "trainer" && trainer?.coach_name ? (
-              <DetailRow label={t("staffAssignedCoach")} value={trainer.coach_name} />
-            ) : null}
-          </dl>
+          </div>
         </div>
 
+        {/* Permissions */}
         {kind === "coach" && permissions.length > 0 ? (
-          <div className="panel-card p-4">
-            <p className="text-xs font-bold text-muted-foreground">{t("staffPermissions")}</p>
-            <ul className="mt-2 flex flex-wrap gap-2">
+          <div>
+            <div className="mb-3 flex items-center gap-2">
+              <span className="h-0.5 w-4 rounded-full bg-accent" />
+              <p className="text-xs font-black text-muted-foreground uppercase tracking-wider">{t("staffPermissions")}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
               {permissions.map((label) => (
-                <li
+                <span
                   key={label}
-                  className="rounded-lg border border-glass-border bg-glass px-2.5 py-1 text-xs font-bold text-foreground"
+                  className="rounded-lg border border-primary/25 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary"
                 >
                   {label}
-                </li>
+                </span>
               ))}
-            </ul>
+            </div>
           </div>
         ) : null}
       </div>
@@ -183,11 +197,12 @@ export function StaffDetailModal({
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function InfoCard({ icon, label, value }: { icon: React.ReactNode | null; label: string; value: string }) {
   return (
-    <div className="panel-card p-3">
-      <dt className="text-xs font-bold text-muted-foreground">{label}</dt>
-      <dd className="mt-1 font-black text-foreground">{value}</dd>
+    <div className="rounded-xl border border-glass-border bg-glass/40 p-3.5">
+      {icon ? <div className="mb-1.5 text-muted-foreground">{icon}</div> : null}
+      <dt className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">{label}</dt>
+      <dd className="mt-0.5 font-black text-foreground">{value}</dd>
     </div>
   );
 }

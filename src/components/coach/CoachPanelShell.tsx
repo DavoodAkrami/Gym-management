@@ -136,7 +136,7 @@ export function CoachPanelShell({ slug }: CoachPanelShellProps) {
   }
 
   return (
-    <div className="panel-page-body flex min-h-0 flex-1 flex-col">
+    <div className="panel-coach panel-page-body flex min-h-0 flex-1 flex-col">
       <button
         type="button"
         className={`panel-mobile-menu-btn ${mobileMenuOpen ? "panel-mobile-menu-btn-open" : ""}`}
@@ -217,7 +217,7 @@ export function CoachPanelShell({ slug }: CoachPanelShellProps) {
         <main className="panel-main-card surface-panel flex min-h-0 flex-1 flex-col">
           <div className="panel-main-header border-b border-border p-5 sm:p-7 sm:pb-5">
             <div className="flex items-start gap-4">
-              <span className="grid size-12 place-items-center rounded-lg bg-surface-muted text-xl text-foreground">
+              <span className="grid size-11 place-items-center rounded-lg text-lg" style={{ background: "rgba(245, 159, 0, 0.15)", color: "var(--warning)" }}>
                 <ActiveIcon aria-hidden="true" />
               </span>
               <div>

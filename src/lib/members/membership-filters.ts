@@ -28,7 +28,7 @@ export function filterMembershipsByType(list: MembershipWithMeta[], filter: Memb
     return list.filter((item) => item.is_active && item.days_left >= 0 && item.days_left <= 3);
   }
   if (filter === "finished") {
-    return list.filter((item) => item.in_lapse_window || (!item.is_active && item.days_left >= -30));
+    return list.filter((item) => !item.is_active);
   }
   return list;
 }

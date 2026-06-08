@@ -11,6 +11,7 @@ import { authActions } from "@/lib/store/slices";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { Spinner } from "@/components/ui/Spinner";
 import { createSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { normalizePhone } from "@/lib/phone";
 
 export function LoginForm() {
   const router = useRouter();
@@ -19,11 +20,14 @@ export function LoginForm() {
   const status = useAppSelector((state) => state.auth.status);
   const error = useAppSelector((state) => state.auth.error);
 
-  const [email, setEmail] = useState("");
+  const [loginValue, setLoginValue] = useState("");
   const [password, setPassword] = useState("");
 
   const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(locale, key);
   const isLoading = status === "loading";
+
+  const isEmail = loginValue.includes("@");
+  const identifier = loginValue.trim();
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -43,7 +47,10 @@ export function LoginForm() {
 
     try {
       const supabase = createSupabaseBrowserClient();
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const credentials = isEmail
+        ? { email: identifier, password }
+        : { phone: normalizePhone(identifier), password };
+      const { data, error: signInError } = await supabase.auth.signInWithPassword(credentials);
 
       if (signInError) {
         throw signInError;
@@ -53,7 +60,7 @@ export function LoginForm() {
         throw new Error(t("authErrorGeneric"));
       }
 
-      const authUser = authUserFromSession(data.session.user, email);
+      const authUser = authUserFromSession(data.session.user, identifier);
 
       dispatch(
         authActions.setAuth({
@@ -88,14 +95,14 @@ export function LoginForm() {
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         <label className="block">
-          <span className="mb-2 block text-sm font-black text-muted-foreground">{t("authEmail")}</span>
+          <span className="mb-2 block text-sm font-black text-muted-foreground">{t("authEmailPhone")}</span>
           <input
-            type="email"
-            name="email"
-            autoComplete="email"
+            type="text"
+            name="login"
+            autoComplete="username"
             required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            value={loginValue}
+            onChange={(event) => setLoginValue(event.target.value)}
             className="w-full px-4"
           />
         </label>
@@ -123,7 +130,7 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={isLoading}
-          className="interactive-lift btn-primary w-full rounded-2xl px-5 py-3.5 text-sm font-black shadow-soft disabled:cursor-not-allowed disabled:opacity-70"
+          className="interactive-lift btn-primary inline-flex items-center justify-center gap-2 w-full rounded-2xl px-5 py-3.5 text-sm font-black shadow-soft disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isLoading ? <Spinner label={t("uiLoading")} /> : t("authLoginButton")}
         </button>

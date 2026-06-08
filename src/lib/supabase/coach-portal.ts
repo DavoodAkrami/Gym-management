@@ -1,6 +1,7 @@
 import { defaultCoachPermissions, type CoachPermissions } from "@/lib/staff/types";
 import { sanitizeAvatarForDb } from "@/lib/staff/avatar";
 import { createSupabaseBrowserClient } from "./client";
+import { normalizePhone } from "@/lib/phone";
 
 export type CoachPortalData = {
   coach: {
@@ -292,7 +293,7 @@ export async function registerCoachAccount(input: CoachSignupInput) {
     p_gym_slug: input.gym_slug,
     p_first_name: input.first_name.trim(),
     p_last_name: input.last_name.trim(),
-    p_phone: input.phone.trim() || null,
+    p_phone: normalizePhone(input.phone) || null,
     p_email: input.email.trim() || null,
     p_specialty: input.specialty.trim() || null,
     p_avatar_url: sanitizeAvatarForDb(input.avatar_url),
@@ -313,7 +314,7 @@ export async function updateCoachSelfProfile(input: CoachProfileInput) {
   const { error } = await supabase.rpc("update_coach_self", {
     p_first_name: input.first_name.trim(),
     p_last_name: input.last_name.trim(),
-    p_phone: input.phone.trim() || null,
+    p_phone: normalizePhone(input.phone) || null,
     p_email: input.email.trim() || null,
     p_specialty: input.specialty.trim() || null,
     p_avatar_url: sanitizeAvatarForDb(input.avatar_url),

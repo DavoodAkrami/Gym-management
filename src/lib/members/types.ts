@@ -23,7 +23,6 @@ export type MemberFormValues = {
   first_name: string;
   last_name: string;
   phone: string;
-  zip_code: string;
   national_id: string;
   status: Member["status"];
   join_date: string;

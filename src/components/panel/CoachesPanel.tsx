@@ -10,6 +10,7 @@ import { StaffAvatar } from "@/components/ui/StaffAvatar";
 import { Spinner } from "@/components/ui/Spinner";
 import { getTranslation } from "@/lib/i18n/translations";
 import type { CoachFormValues, GymCoach } from "@/lib/staff/types";
+import { showToast } from "@/lib/toast/client";
 import {
   createGymCoach,
   deleteGymCoach,
@@ -77,21 +78,18 @@ export function CoachesPanel({ gymId, locale, currency }: CoachesPanelProps) {
     setSaving(true);
     setError(null);
     try {
-      const coachList =
-        modal.type === "add"
-          ? await createGymCoach(gymId, values)
-          : modal.type === "edit"
-            ? await updateGymCoach(gymId, modal.coach.id, values)
-            : coaches;
+      if (modal.type === "add") {
+        await createGymCoach(gymId, values);
+        showToast("success", t("coachAddSuccess"));
+      } else if (modal.type === "edit") {
+        await updateGymCoach(gymId, modal.coach.id, values);
+        showToast("success", t("coachEditSuccess"));
+      }
 
-      setCoaches(coachList);
       setModal({ type: "none" });
-      void load().catch((caught) => {
-        setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
-      });
+      await load();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
-      throw caught;
+      showToast("error", caught instanceof Error ? caught.message : t("authErrorGeneric"));
     } finally {
       setSaving(false);
     }
@@ -107,8 +105,9 @@ export function CoachesPanel({ gymId, locale, currency }: CoachesPanelProps) {
       await deleteGymCoach(gymId, modal.coach.id);
       setModal({ type: "none" });
       await load();
+      showToast("success", t("coachDeleteSuccess"));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
+      showToast("error", caught instanceof Error ? caught.message : t("authErrorGeneric"));
     } finally {
       setSaving(false);
     }
@@ -232,10 +231,10 @@ export function CoachesPanel({ gymId, locale, currency }: CoachesPanelProps) {
             <button
               type="button"
               disabled={saving}
-              className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-2 text-sm font-black text-danger"
+              className="inline-flex items-center justify-center rounded-xl border border-danger/30 bg-danger/10 px-4 py-2 text-sm font-black text-danger"
               onClick={() => void handleDelete()}
             >
-              {saving ? <Spinner label={t("uiDeleting")} /> : t("memberDeleteConfirm")}
+              {saving ? <Spinner size="sm" label={t("uiDeleting")} /> : t("memberDeleteConfirm")}
             </button>
           </div>
         }

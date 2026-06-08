@@ -71,18 +71,14 @@ export function PanelShell({ slug }: PanelShellProps) {
     if (!mobileMenuOpen) {
       return;
     }
-
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMobileMenuOpen(false);
       }
     };
-
     document.addEventListener("keydown", handleEscape);
-
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleEscape);
@@ -92,7 +88,7 @@ export function PanelShell({ slug }: PanelShellProps) {
   const ActiveIcon = active.icon;
 
   return (
-    <div className="panel-page-body flex min-h-0 flex-1 flex-col">
+    <div className="panel-owner panel-page-body flex min-h-0 flex-1 flex-col">
       <button
         type="button"
         className={`panel-mobile-menu-btn ${mobileMenuOpen ? "panel-mobile-menu-btn-open" : ""}`}
@@ -164,7 +160,7 @@ export function PanelShell({ slug }: PanelShellProps) {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
-        <aside className="surface-panel hidden w-full shrink-0 overflow-y-auto p-3 lg:block lg:w-64 lg:max-h-full lg:p-4">
+        <aside className="panel-sidebar-rail surface-panel hidden w-full shrink-0 overflow-y-auto p-3 lg:block lg:w-64 lg:max-h-full lg:p-4">
           <p className="mb-3 px-2 text-eyebrow">{t("panelMenu")}</p>
           <PanelNavList
             locale={locale}
@@ -175,14 +171,14 @@ export function PanelShell({ slug }: PanelShellProps) {
         </aside>
 
         <main className="panel-main-card surface-panel flex min-h-0 flex-1 flex-col">
-          <div className="panel-main-header border-b border-border p-5 sm:p-7 sm:pb-5">
-            <div className="flex items-start gap-4">
-              <span className="grid size-12 place-items-center rounded-lg bg-surface-muted text-xl text-foreground">
+          <div className="panel-main-header border-b border-border p-3 sm:p-7 sm:pb-5">
+            <div className="flex items-start gap-3 sm:gap-4">
+              <span className="grid size-8 place-items-center rounded-lg bg-primary-soft text-sm text-primary sm:size-11 sm:text-lg">
                 <ActiveIcon aria-hidden="true" />
               </span>
               <div>
-                <h1 className="text-2xl font-black text-foreground sm:text-3xl">{t(active.labelKey)}</h1>
-                <p className="mt-2 max-w-2xl text-sm font-medium leading-7 text-muted-foreground sm:text-base">
+                <h1 className="text-lg font-black text-foreground sm:text-3xl">{t(active.labelKey)}</h1>
+                <p className="mt-0.5 max-w-2xl text-xs font-medium leading-5 text-muted-foreground sm:mt-2 sm:text-base sm:leading-7">
                   {t(active.descriptionKey)}
                 </p>
               </div>

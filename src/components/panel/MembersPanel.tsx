@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FiEdit2, FiFilter, FiPlus, FiTrash2 } from "react-icons/fi";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { FiCheck, FiEdit2, FiFilter, FiPlus, FiTrash2 } from "react-icons/fi";
 import { Modal } from "@/components/Modal";
 import { MemberDetailModal } from "@/components/panel/MemberDetailModal";
 import { MemberFormModal } from "@/components/panel/MemberFormModal";
 import { ListSkeleton } from "@/components/panel/PanelSkeleton";
 import { Spinner } from "@/components/ui/Spinner";
+import { StaffAvatar } from "@/components/ui/StaffAvatar";
 import { SelectBar } from "@/components/SelectBar";
+import { displayPhone } from "@/lib/phone";
 import type { SelectBarOption } from "@/components/SelectBar";
 import { getTranslation } from "@/lib/i18n/translations";
 import { formatDate } from "@/lib/date/format";
@@ -21,9 +24,11 @@ import {
   fetchLapsedMembers,
   updateGymMember,
 } from "@/lib/supabase/members";
+import { showToast } from "@/lib/toast/client";
 import { membersActions } from "@/lib/store/slices";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import type { Locale } from "@/lib/store/slices";
+import { useDebounce } from "@/lib/hooks/useDebounce";
 
 const PAGE_SIZE = 10;
 
@@ -53,9 +58,15 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
     [gymId, gymPlanEntities, gymPlanIds],
   );
 
+  const memberIds = useAppSelector((state) => state.members.ids);
+  const memberEntities = useAppSelector((state) => state.members.entities);
+  const members = useMemo(
+    () => memberIds.map((id) => memberEntities[id]).filter(Boolean) as MemberWithMeta[],
+    [memberIds, memberEntities],
+  );
+
   const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(locale, key);
 
-  const [members, setMembers] = useState<MemberWithMeta[]>([]);
   const [lapsedMembers, setLapsedMembers] = useState<MemberWithMeta[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -63,22 +74,57 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [filter, setFilter] = useState<MemberFilter>("all");
   const [sort, setSort] = useState<MemberSort>("join_desc");
   const [filterOpen, setFilterOpen] = useState(false);
+  const filterTriggerRef = useRef<HTMLButtonElement>(null);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const [filterMenuStyle, setFilterMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!filterOpen || !filterTriggerRef.current) return;
+    const rect = filterTriggerRef.current.getBoundingClientRect();
+    const menuWidth = Math.max(rect.width, 180);
+    const gap = 6;
+    const maxHeight = Math.min(256, window.innerHeight - 16);
+    let top = rect.bottom + gap;
+    const left = rect.right - menuWidth;
+    if (top + maxHeight > window.innerHeight - 8) {
+      const above = rect.top - gap - maxHeight;
+      if (above >= 8) top = above;
+    }
+    setFilterMenuStyle({ top, left: Math.max(8, left), width: menuWidth });
+  }, [filterOpen]);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const handleMouseDown = (event: MouseEvent) => {
+      if (
+        filterTriggerRef.current?.contains(event.target as Node) ||
+        filterMenuRef.current?.contains(event.target as Node)
+      ) {
+        return;
+      }
+      setFilterOpen(false);
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [filterOpen]);
+
   const [modal, setModal] = useState<ModalState>({ type: "none" });
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  const hasMore = members.length < totalCount;
+  const hasMore = memberIds.length < totalCount;
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setMembers([]);
+    dispatch(membersActions.setMembers([]));
 
     try {
       const [result, lapsedList] = await Promise.all([
-        fetchMembersPage(gymId, PAGE_SIZE, 0, { search, filter, sort }),
+        fetchMembersPage(gymId, PAGE_SIZE, 0, { search: debouncedSearch, filter, sort }),
         fetchLapsedMembers(gymId),
       ]);
 
@@ -88,26 +134,9 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
 
       const lapsedOnly = lapsedList.filter((member) => !activeIds.has(member.id));
 
-      setMembers(result.members);
+      dispatch(membersActions.setMembers(result.members));
       setLapsedMembers(lapsedOnly);
       setTotalCount(result.total);
-
-      result.members.forEach((member) => {
-        dispatch(
-          membersActions.upsertMember({
-            id: member.id,
-            gym_id: member.gym_id,
-            first_name: member.first_name,
-            last_name: member.last_name,
-            phone: member.phone,
-            zip_code: member.zip_code,
-            national_id: member.national_id,
-            preferred_language: member.preferred_language,
-            status: member.status,
-            join_date: member.join_date,
-          }),
-        );
-      });
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : getTranslation(locale, "authErrorGeneric"),
@@ -115,7 +144,7 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
     } finally {
       setLoading(false);
     }
-  }, [gymId, dispatch, locale, search, filter, sort]);
+  }, [gymId, dispatch, locale, debouncedSearch, filter, sort]);
 
   useEffect(() => {
     void loadInitial();
@@ -126,15 +155,17 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
     setLoadingMore(true);
 
     try {
-      const result = await fetchMembersPage(gymId, PAGE_SIZE, members.length, { search, filter, sort });
-      setMembers((prev) => [...prev, ...result.members]);
+      const result = await fetchMembersPage(gymId, PAGE_SIZE, memberIds.length, { search: debouncedSearch, filter, sort });
+      result.members.forEach((member) => {
+        dispatch(membersActions.upsertMember(member));
+      });
       setTotalCount(result.total);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
     } finally {
       setLoadingMore(false);
     }
-  }, [gymId, members.length, loadingMore, hasMore, search, filter, sort, t]);
+  }, [gymId, memberIds.length, loadingMore, hasMore, debouncedSearch, filter, sort, t, dispatch]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -183,14 +214,27 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
 
     try {
       if (modal.type === "add") {
-        await createGymMember(gymId, values, locale);
+        const result = await createGymMember(gymId, values);
+        showToast("success", t("memberAddSuccess"));
+        if (result.length > 0) {
+          dispatch(membersActions.setMembers(result));
+        }
       } else if (modal.type === "edit") {
-        await updateGymMember(gymId, modal.member.id, values, locale);
+        const result = await updateGymMember(gymId, modal.member.id, values);
+        showToast("success", t("memberEditSuccess"));
+        if (result.length > 0) {
+          dispatch(membersActions.setMembers(result));
+        }
       }
       setModal({ type: "none" });
-      await loadInitial();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
+      const msg =
+        caught instanceof Error
+          ? caught.message
+          : caught && typeof caught === "object" && "message" in caught
+            ? String((caught as Record<string, unknown>).message)
+            : t("authErrorGeneric");
+      showToast("error", msg);
     } finally {
       setSaving(false);
     }
@@ -204,15 +248,15 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
     setSaving(true);
     setError(null);
 
-    try {
-      await deleteGymMember(gymId, modal.member.id, wasPaid);
+    const result = await deleteGymMember(gymId, modal.member.id, wasPaid);
+    if (result.success) {
+      dispatch(membersActions.deleteMember(modal.member.id));
       setModal({ type: "none" });
-      await loadInitial();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
-    } finally {
-      setSaving(false);
+      showToast("success", t("memberDeleteSuccess"));
+    } else {
+      showToast("error", result.error ?? t("authErrorGeneric"));
     }
+    setSaving(false);
   };
 
   const viewMember = modal.type === "view" ? modal.member : null;
@@ -231,11 +275,13 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
         }
       }}
     >
-      <div>
-        <p className="font-black text-foreground">
-          {member.first_name} {member.last_name}
-        </p>
-        <p className="text-sm font-semibold text-muted-foreground">{member.phone}</p>
+      <div className="flex items-center gap-3">
+        <StaffAvatar firstName={member.first_name} lastName={member.last_name} avatarUrl={member.avatar_url} size="sm" />
+        <div className="min-w-0">
+          <p className="font-black text-foreground">
+            {member.first_name} {member.last_name}
+          </p>
+          <p className="text-sm font-semibold text-muted-foreground">{displayPhone(member.phone)}</p>
         <p className="mt-1 text-xs font-bold text-muted-foreground">
           {member.currentMembership?.plan_name ?? member.latestMembership?.plan_name ?? t("memberNoPlan")}
           {member.currentMembership
@@ -249,6 +295,7 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
             {t("memberLapseUntil")}: {formatDate(member.lapse_visible_until, locale)}
           </p>
         ) : null}
+      </div>
       </div>
       <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
         {!lapsed ? (
@@ -288,6 +335,7 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative">
             <button
+              ref={filterTriggerRef}
               type="button"
               className="inline-flex items-center gap-2 rounded-xl border border-glass-border bg-glass px-4 py-2.5 text-sm font-bold"
               onClick={() => setFilterOpen((open) => !open)}
@@ -296,30 +344,41 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
               {t("memberFilter")}
               {filter !== "all" ? ` · ${t(filter === "new" ? "memberFilterNew" : "memberFilterExpiring")}` : ""}
             </button>
-            {filterOpen ? (
-              <div className="panel-card absolute end-0 z-20 mt-2 min-w-48 p-2 shadow-lift">
+            {filterOpen && filterMenuStyle ? createPortal(
+              <div
+                ref={filterMenuRef}
+                className="selectbar-menu selectbar-menu-open"
+                style={{ top: filterMenuStyle.top, left: filterMenuStyle.left, width: filterMenuStyle.width, zIndex: 10000, position: "fixed" }}
+              >
                 {(
                   [
                     ["all", "memberFilterAll"],
                     ["new", "memberFilterNew"],
                     ["expiring", "memberFilterExpiring"],
                   ] as const
-                ).map(([value, labelKey]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={`block w-full rounded-xl px-3 py-2 text-start text-sm font-bold ${
-                      filter === value ? "bg-glass text-foreground" : "text-muted-foreground"
-                    }`}
-                    onClick={() => {
-                      setFilter(value);
-                      setFilterOpen(false);
-                    }}
-                  >
-                    {t(labelKey)}
-                  </button>
-                ))}
-              </div>
+                ).map(([value, labelKey]) => {
+                  const isSelected = filter === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      className={`selectbar-option ${isSelected ? "selectbar-option-selected" : ""}`}
+                      onClick={() => {
+                        setFilter(value);
+                        setFilterOpen(false);
+                      }}
+                    >
+                      <span className="selectbar-option-copy">
+                        <span className="selectbar-option-label">{t(labelKey)}</span>
+                      </span>
+                      {isSelected ? <FiCheck aria-hidden="true" className="selectbar-check" /> : null}
+                    </button>
+                  );
+                })}
+              </div>,
+              document.body
             ) : null}
           </div>
           <div className="min-w-[11rem]">
@@ -430,18 +489,18 @@ export function MembersPanel({ gymId, locale, currency }: MembersPanelProps) {
             <button
               type="button"
               disabled={saving}
-              className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-2 text-sm font-black text-danger"
+              className="inline-flex items-center justify-center rounded-xl border border-danger/30 bg-danger/10 px-4 py-2 text-sm font-black text-danger"
               onClick={() => void handleDelete(false)}
             >
-              {saving ? <Spinner label={t("uiDeleting")} /> : t("memberDeleteRemoveIncome")}
+              {saving ? <Spinner size="sm" label={t("uiDeleting")} /> : t("memberDeleteRemoveIncome")}
             </button>
             <button
               type="button"
               disabled={saving}
-              className="rounded-xl border border-glass-border bg-glass px-4 py-2 text-sm font-black text-foreground"
+              className="inline-flex items-center justify-center rounded-xl border border-glass-border bg-glass px-4 py-2 text-sm font-black text-foreground"
               onClick={() => void handleDelete(true)}
             >
-              {saving ? <Spinner label={t("uiDeleting")} /> : t("memberDeleteKeepIncome")}
+              {saving ? <Spinner size="sm" label={t("uiDeleting")} /> : t("memberDeleteKeepIncome")}
             </button>
           </div>
         }

@@ -1,6 +1,7 @@
 import { sanitizeAvatarForDb } from "@/lib/staff/avatar";
 import { staffFullName } from "@/lib/staff/avatar";
 import { createSupabaseBrowserClient } from "./client";
+import { normalizePhone } from "@/lib/phone";
 
 export type TrainerPortalData = {
   trainer: {
@@ -125,7 +126,7 @@ export async function registerTrainerAccount(input: TrainerSignupInput) {
     p_coach_id: input.coach_id,
     p_first_name: input.first_name.trim(),
     p_last_name: input.last_name.trim(),
-    p_phone: input.phone.trim() || null,
+    p_phone: normalizePhone(input.phone) || null,
     p_email: input.email.trim() || null,
     p_specialty: input.specialty.trim() || null,
     p_avatar_url: sanitizeAvatarForDb(input.avatar_url),
@@ -146,7 +147,7 @@ export async function updateTrainerSelfProfile(input: TrainerProfileInput) {
   const { error } = await supabase.rpc("update_trainer_self", {
     p_first_name: input.first_name.trim(),
     p_last_name: input.last_name.trim(),
-    p_phone: input.phone.trim() || null,
+    p_phone: normalizePhone(input.phone) || null,
     p_email: input.email.trim() || null,
     p_specialty: input.specialty.trim() || null,
     p_avatar_url: sanitizeAvatarForDb(input.avatar_url),

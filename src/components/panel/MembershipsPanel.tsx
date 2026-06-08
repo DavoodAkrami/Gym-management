@@ -7,6 +7,7 @@ import { SelectBar, type SelectBarOption } from "@/components/SelectBar";
 import { Spinner } from "@/components/ui/Spinner";
 import { getTranslation } from "@/lib/i18n/translations";
 import { formatDate } from "@/lib/date/format";
+import { displayPhone } from "@/lib/phone";
 import {
   filterMembershipsByQuery,
   filterMembershipsByType,
@@ -15,6 +16,7 @@ import {
 import { planRemainingLabel } from "@/lib/members/membership-utils";
 import type { MembershipFilter, MembershipWithMeta } from "@/lib/members/types";
 import type { MembershipSort } from "@/lib/members/sort";
+import { showToast } from "@/lib/toast/client";
 import {
   fetchGymMemberships,
   updateMembershipStatus,
@@ -64,7 +66,7 @@ export function MembershipsPanel({ gymId, locale, currency }: MembershipsPanelPr
 
   const activeList = useMemo(() => filtered.filter((item) => item.is_active), [filtered]);
   const finishedList = useMemo(
-    () => filtered.filter((item) => !item.is_active && (item.in_lapse_window || item.days_left >= -30)),
+    () => filtered.filter((item) => !item.is_active),
     [filtered],
   );
 
@@ -86,8 +88,9 @@ export function MembershipsPanel({ gymId, locale, currency }: MembershipsPanelPr
     try {
       await updateMembershipStatus(gymId, item.id, status);
       await load();
+      showToast("success", t("membershipStatusUpdated"));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : t("authErrorGeneric"));
+      showToast("error", caught instanceof Error ? caught.message : t("authErrorGeneric"));
     } finally {
       setBusyId(null);
     }
@@ -99,7 +102,7 @@ export function MembershipsPanel({ gymId, locale, currency }: MembershipsPanelPr
         <p className="font-black text-foreground">
           {item.member_first_name} {item.member_last_name}
         </p>
-        <p className="text-sm font-semibold text-muted-foreground">{item.member_phone}</p>
+        <p className="text-sm font-semibold text-muted-foreground">{displayPhone(item.member_phone)}</p>
         <p className="mt-1 text-xs font-bold text-muted-foreground">
           {item.plan_name} · {formatDate(item.start_date, locale)} → {formatDate(item.end_date, locale)}
         </p>
@@ -122,7 +125,7 @@ export function MembershipsPanel({ gymId, locale, currency }: MembershipsPanelPr
           <button
             type="button"
             disabled={busyId === item.id}
-            className="rounded-xl border border-glass-border px-3 py-2 text-xs font-bold"
+            className="inline-flex items-center justify-center rounded-xl border border-glass-border px-3 py-2 text-xs font-bold"
             onClick={() => void handleStatus(item, "expired")}
           >
             {busyId === item.id ? <Spinner size="sm" label={t("uiSaving")} /> : t("membershipMarkExpired")}
@@ -132,10 +135,10 @@ export function MembershipsPanel({ gymId, locale, currency }: MembershipsPanelPr
           <button
             type="button"
             disabled={busyId === item.id}
-            className="rounded-xl border border-danger/30 px-3 py-2 text-xs font-bold text-danger"
+            className="inline-flex items-center justify-center rounded-xl border border-danger/30 px-3 py-2 text-xs font-bold text-danger"
             onClick={() => void handleStatus(item, "cancelled")}
           >
-            {t("membershipMarkCancelled")}
+            {busyId === item.id ? <Spinner size="sm" label={t("uiSaving")} /> : t("membershipMarkCancelled")}
           </button>
         ) : null}
       </div>

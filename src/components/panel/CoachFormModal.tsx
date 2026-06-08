@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { StaffAvatar } from "@/components/ui/StaffAvatar";
 import { getTranslation } from "@/lib/i18n/translations";
 import { readAvatarFile } from "@/lib/staff/avatar";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 import {
   defaultCoachPermissions,
   type CoachFormValues,
@@ -15,6 +16,8 @@ import {
   type StaffStatus,
 } from "@/lib/staff/types";
 import type { Locale } from "@/lib/store/slices";
+import { coachFormSchema } from "@/lib/validation/schemas";
+import { translateFieldErrors } from "@/lib/validation/translate-errors";
 
 type CoachFormModalProps = {
   open: boolean;
@@ -63,11 +66,13 @@ export function CoachFormModal({
   const t = (key: Parameters<typeof getTranslation>[1]) => getTranslation(locale, key);
   const [values, setValues] = useState<CoachFormValues>(() => defaultValues(coach));
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     if (open) {
       setValues(defaultValues(coach));
       setFormError(null);
+      setFieldErrors({});
     }
   }, [open, coach?.id, mode]);
 
@@ -83,6 +88,14 @@ export function CoachFormModal({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setFormError(null);
+    setFieldErrors({});
+
+    const result = coachFormSchema.safeParse(values);
+    if (!result.success) {
+      setFieldErrors(translateFieldErrors(result.error.flatten().fieldErrors, t));
+      return;
+    }
+
     try {
       await onSubmit(values);
     } catch {
@@ -109,6 +122,11 @@ export function CoachFormModal({
     }));
   };
 
+  const fieldError = (name: string) =>
+    fieldErrors[name] ? (
+      <p className="mt-1 text-xs font-semibold text-danger">{fieldErrors[name][0]}</p>
+    ) : null;
+
   const title = mode === "add" ? t("coachAdd") : t("coachEdit");
 
   return (
@@ -126,7 +144,7 @@ export function CoachFormModal({
             type="submit"
             form="coach-form"
             disabled={saving}
-            className="btn-primary rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70"
+            className="btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-black disabled:opacity-70"
           >
             {saving ? <Spinner label={t("uiSaving")} /> : t("memberModalSave")}
           </button>
@@ -162,14 +180,17 @@ export function CoachFormModal({
         <label className="block sm:col-span-1">
           <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberFirstName")}</span>
           <input required value={values.first_name} onChange={(e) => setValues((v) => ({ ...v, first_name: e.target.value }))} className="w-full px-3" />
+          {fieldError("first_name")}
         </label>
         <label className="block sm:col-span-1">
           <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberLastName")}</span>
           <input required value={values.last_name} onChange={(e) => setValues((v) => ({ ...v, last_name: e.target.value }))} className="w-full px-3" />
+          {fieldError("last_name")}
         </label>
         <label className="block sm:col-span-1">
           <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("memberPhone")}</span>
-          <input value={values.phone} onChange={(e) => setValues((v) => ({ ...v, phone: e.target.value }))} className="w-full px-3" />
+          <PhoneInput value={values.phone} onChange={(phone) => setValues((v) => ({ ...v, phone }))} />
+          {fieldError("phone")}
         </label>
         <label className="block sm:col-span-1">
           <span className="mb-1 block text-xs font-bold text-muted-foreground">{t("staffEmail")}</span>

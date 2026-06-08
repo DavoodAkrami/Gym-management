@@ -106,28 +106,28 @@ export function CoachOverviewPanel({ locale, currency }: CoachOverviewPanelProps
         </p>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <article className="panel-card flex items-start gap-4 p-5">
-          <span className="grid size-12 place-items-center rounded-xl bg-surface-muted text-xl text-foreground">
-            <FiUsers aria-hidden="true" />
+      <div className="scoreboard-grid">
+        <article className="scoreboard-card">
+          <span className="grid size-12 shrink-0 place-items-center rounded-xl" style={{ background: "rgba(245, 159, 0, 0.15)", color: "var(--warning)" }}>
+            <FiUsers aria-hidden="true" className="text-xl" />
           </span>
           <div>
-            <p className="text-eyebrow">{t("coachOverviewTrainees")}</p>
-            <p className="mt-1 text-3xl font-black text-foreground">{traineeCount}</p>
-            <p className="mt-2 text-xs font-semibold text-muted-foreground">{t("coachOverviewTraineesHint")}</p>
+            <p className="text-sm font-bold" style={{ color: "var(--muted-foreground)" }}>{t("coachOverviewTrainees")}</p>
+            <p className="mt-0.5 text-3xl font-black text-foreground">{traineeCount}</p>
+            <p className="mt-1 text-xs font-semibold text-muted-foreground">{t("coachOverviewTraineesHint")}</p>
           </div>
         </article>
 
-        <article className="panel-card flex items-start gap-4 p-5">
-          <span className="grid size-12 place-items-center rounded-xl bg-surface-muted text-xl text-foreground">
-            <FiDollarSign aria-hidden="true" />
+        <article className="scoreboard-card">
+          <span className="grid size-12 shrink-0 place-items-center rounded-xl" style={{ background: "rgba(245, 159, 0, 0.15)", color: "var(--warning)" }}>
+            <FiDollarSign aria-hidden="true" className="text-xl" />
           </span>
           <div>
-            <p className="text-eyebrow">{t("coachOverviewEarnings")}</p>
-            <p className="mt-1 text-3xl font-black text-foreground">
+            <p className="text-sm font-bold" style={{ color: "var(--muted-foreground)" }}>{t("coachOverviewEarnings")}</p>
+            <p className="mt-0.5 text-3xl font-black text-foreground">
               {formatMoney(earnings, currency, locale)}
             </p>
-            <p className="mt-2 text-xs font-semibold text-muted-foreground">{t("coachOverviewEarningsHint")}</p>
+            <p className="mt-1 text-xs font-semibold text-muted-foreground">{t("coachOverviewEarningsHint")}</p>
           </div>
         </article>
       </div>
@@ -149,7 +149,7 @@ export function CoachOverviewPanel({ locale, currency }: CoachOverviewPanelProps
                   <Tooltip
                     contentStyle={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", borderRadius: "12px", color: "var(--foreground)", fontSize: "13px", fontWeight: 600, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
                   />
-                  <Line type="monotone" dataKey="value" stroke="var(--chart-line)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="value" stroke="var(--warning)" strokeWidth={2.5} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             )}
@@ -172,7 +172,7 @@ export function CoachOverviewPanel({ locale, currency }: CoachOverviewPanelProps
                   <Tooltip
                     contentStyle={{ background: "var(--card-bg)", border: "1px solid var(--glass-border)", borderRadius: "12px", color: "var(--foreground)", fontSize: "13px", fontWeight: 600, backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
                   />
-                  <Bar dataKey="value" fill="var(--chart-bar)" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="value" fill="var(--warning)" radius={[6, 6, 0, 0]} opacity={0.7} />
                 </BarChart>
               </ResponsiveContainer>
             )}

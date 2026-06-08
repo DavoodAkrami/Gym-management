@@ -1,4 +1,5 @@
 import { createSupabaseBrowserClient } from "./client";
+import { normalizePhone } from "@/lib/phone";
 
 export type SignupContextGym = {
   id: string;
@@ -26,9 +27,8 @@ export type MemberRegistrationInput = {
   last_name: string;
   phone: string;
   plan_id: string;
-  zip_code?: string;
   national_id?: string;
-  preferred_language: "en" | "fa";
+  email?: string;
 };
 
 export async function fetchSignupContext(token: string): Promise<SignupContext> {
@@ -139,11 +139,10 @@ export async function registerMemberViaSignupLink(input: MemberRegistrationInput
     p_token: input.token,
     p_first_name: input.first_name,
     p_last_name: input.last_name,
-    p_phone: input.phone,
+    p_phone: normalizePhone(input.phone),
     p_plan_id: input.plan_id,
-    p_zip_code: input.zip_code ?? null,
     p_national_id: input.national_id ?? null,
-    p_preferred_language: input.preferred_language,
+    p_email: input.email ?? null,
   });
 
   if (error) {

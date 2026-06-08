@@ -268,7 +268,7 @@ export function SignupForm() {
         <button
           type="submit"
           disabled={isLoading}
-          className="interactive-lift btn-primary w-full rounded-2xl px-5 py-3.5 text-sm font-black shadow-soft disabled:cursor-not-allowed disabled:opacity-70"
+          className="interactive-lift btn-primary inline-flex items-center justify-center gap-2 w-full rounded-2xl px-5 py-3.5 text-sm font-black shadow-soft disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isLoading ? (
             <Spinner label={gymOnlyMode ? t("uiSaving") : t("uiLoading")} />
