@@ -1,36 +1,110 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gym Management System
 
-## Getting Started
+A modern gym management platform built with **Next.js, TypeScript, Supabase, and Redux**, designed to manage members, attendance, subscriptions, and analytics in a clean dashboard experience.
 
-First, run the development server:
+🌐 **Live Demo:** https://gym-management-navy-eta.vercel.app
+
+---
+
+## ⚡ About This Project
+
+This is a **vibe-coded project** — built through fast iteration, experimentation, and AI-assisted development workflows.
+
+The focus was on:
+- rapid product thinking
+- building real features quickly
+- refining structure as the system evolved
+
+---
+
+## ✨ Features
+
+- Member management system
+- Attendance tracking
+- QR code generation
+- Subscription / membership handling
+- Dashboard analytics
+- Persian (Jalaali) calendar support
+- Responsive UI (mobile + desktop)
+- Authentication via Supabase
+
+---
+
+## 🧠 Tech Stack
+
+**Frontend**
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS 4
+- Framer Motion
+
+**State Management**
+- Redux Toolkit
+- React Redux
+
+**Backend**
+- Supabase (Auth + Database)
+
+**Visualization**
+- Recharts
+
+**Utilities**
+- QR Code React
+- Jalaali JS
+
+---
+
+## 📸 Screenshots
+
+Add screenshots by placing images inside a `/screenshots` folder and referencing them like:
+
+![Dashboard](./screenshots/dashboard.png)
+
+---
+
+## 🚀 Installation
 
 ```bash
+git clone https://github.com/DavoodAkrami/Gym-management.git
+cd Gym-management
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🔐 Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create a `.env.local` file:
 
-## Learn More
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🗺️ Roadmap
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Coach management system
+- Financial tracking dashboard
+- Workout plans per member
+- AI fitness insights
+- Notification system
+- Mobile member portal
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 👤 Author
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Davood Akrami
+
+- GitHub: [GitHub](https://github.com/DavoodAkrami)
+- LinkedIn: [LinkedIn](https://www.linkedin.com/in/davood-akrami-72014a329)
+
+---
+
+## 📄 License
+
+MIT
